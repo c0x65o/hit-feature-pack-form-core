@@ -45,27 +45,33 @@ schema:
   exports: [forms, formVersions, formFields, formEntries, formEntryHistory]
 
 # API routes expected by this pack
-# NOTE: generator will use this to create /app/api/forms/** files.
+# Handlers are exported from the feature pack and imported at runtime
 api:
   routes:
     - path: /api/forms
       methods: [GET, POST]
-      template: forms_list_create
+      handler: "@hit/feature-pack-forms/server/api/forms"
+      description: "List forms (GET) or create form (POST)"
     - path: /api/forms/[id]
       methods: [GET, PUT, DELETE]
-      template: forms_get_update_delete
+      handler: "@hit/feature-pack-forms/server/api/forms-id"
+      description: "Get, update, or delete a form"
     - path: /api/forms/[id]/publish
       methods: [POST]
-      template: forms_publish
+      handler: "@hit/feature-pack-forms/server/api/publish"
+      description: "Publish a form version"
     - path: /api/forms/[id]/unpublish
       methods: [POST]
-      template: forms_unpublish
+      handler: "@hit/feature-pack-forms/server/api/unpublish"
+      description: "Unpublish a form"
     - path: /api/forms/[id]/entries
       methods: [GET, POST]
-      template: entries_list_create
+      handler: "@hit/feature-pack-forms/server/api/entries"
+      description: "List entries (GET) or create entry (POST)"
     - path: /api/forms/[id]/entries/[entryId]
       methods: [GET, PUT, DELETE]
-      template: entries_get_update_delete
+      handler: "@hit/feature-pack-forms/server/api/entries-id"
+      description: "Get, update, or delete an entry"
 
 requires:
   modules: []

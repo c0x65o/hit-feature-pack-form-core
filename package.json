@@ -1,6 +1,6 @@
 {
   "name": "@hit/feature-pack-forms",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Runtime Forms feature pack with builder + CRUD entries + search + reference linking. Uses @hit/ui-kit for shell-agnostic UI.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,6 +23,12 @@
       "import": "./dist/schema/forms.js",
       "require": "./dist/schema/forms.js",
       "default": "./dist/schema/forms.js"
+    },
+    "./server/api/*": {
+      "types": "./dist/server/api/*.d.ts",
+      "import": "./dist/server/api/*.js",
+      "require": "./dist/server/api/*.js",
+      "default": "./dist/server/api/*.js"
     }
   },
   "files": [
@@ -44,9 +50,11 @@
   },
   "devDependencies": {
     "@hit/ui-kit": "file:../hit-ui-kit",
+    "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "drizzle-orm": "^0.30.0",
     "lucide-react": "^0.460.0",
+    "next": "^14.2.5",
     "typescript": "^5.0.0"
   },
   "keywords": [
