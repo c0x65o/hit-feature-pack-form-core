@@ -16,6 +16,8 @@ export {
   formEntries,
   formEntryHistory,
   formsAcls,
+  formsPrincipalTypeEnum,
+  FORM_PERMISSIONS,
   type Form,
   type InsertForm,
   type FormVersion,
@@ -27,4 +29,5 @@ export {
   type FormEntryHistory,
   type FormsAcl,
   type InsertFormsAcl,
+  type FormPermission,
 } from '../schema/forms';

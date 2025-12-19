@@ -34,15 +34,21 @@ export {
   formEntries,
   formEntryHistory,
   formsAcls,
+  formsPrincipalTypeEnum,
+  FORM_PERMISSIONS,
   type Form,
   type FormVersion,
   type FormField,
   type FormEntry,
   type FormEntryHistory,
   type FormsAcl,
+  type FormPermission,
   type InsertForm,
   type InsertFormVersion,
   type InsertFormField,
   type InsertFormEntry,
   type InsertFormsAcl,
 } from './schema/forms';
+
+// Component exports
+export { FormAclModal } from './components/FormAclModal';

@@ -102,6 +102,14 @@ export async function POST(request) {
             description: body.description || null,
             scope: body.scope || 'private',
             ownerUserId: userId,
+            // Navigation config
+            navShow: body.navShow ?? true,
+            navPlacement: body.navPlacement || 'under_forms',
+            navGroup: body.navGroup || 'main',
+            navWeight: typeof body.navWeight === 'number' ? body.navWeight : 500,
+            navLabel: body.navLabel || null,
+            navIcon: body.navIcon || null,
+            navParentPath: body.navParentPath || null,
         });
         // Create initial draft version
         await db.insert(formVersions).values({

@@ -1,9 +1,33 @@
 // src/server/api/forms-id.ts
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { forms, formVersions, formFields, formEntries, formEntryHistory } from '@/lib/feature-pack-schemas';
-import { and, desc, eq } from 'drizzle-orm';
-import { getUserId } from '../auth';
+import { forms, formVersions, formFields, formEntries, formEntryHistory, formsAcls } from '@/lib/feature-pack-schemas';
+import { and, desc, eq, or } from 'drizzle-orm';
+import { extractUserFromRequest, getUserId } from '../auth';
+/**
+ * Check if user can access a form (owner, admin, or has ACL entry)
+ */
+async function canAccessForm(db, formId, userId, roles = []) {
+    // Check if user is owner
+    const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
+    if (!form)
+        return false;
+    if (form.ownerUserId === userId)
+        return true;
+    // Check if user is admin
+    if (roles.includes('admin') || roles.includes('Admin'))
+        return true;
+    // Check ACL entries (user email, groups, roles)
+    const principalIds = [userId, ...roles].filter(Boolean);
+    if (principalIds.length === 0)
+        return false;
+    const aclEntries = await db
+        .select()
+        .from(formsAcls)
+        .where(and(eq(formsAcls.formId, formId), or(...principalIds.map((id) => eq(formsAcls.principalId, id)))))
+        .limit(1);
+    return aclEntries.length > 0;
+}
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 function extractFormId(request) {
@@ -23,9 +47,14 @@ export async function GET(request) {
         if (!formId) {
             return NextResponse.json({ error: 'Missing form id' }, { status: 400 });
         }
-        const userId = getUserId(request);
-        if (!userId) {
+        const user = extractUserFromRequest(request);
+        if (!user?.sub) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        // Check access (owner, admin, or ACL)
+        const hasAccess = await canAccessForm(db, formId, user.sub, user.roles || []);
+        if (!hasAccess) {
+            return NextResponse.json({ error: 'Form not found' }, { status: 404 });
         }
         // Get form
         const [form] = await db
@@ -35,10 +64,6 @@ export async function GET(request) {
             .limit(1);
         if (!form) {
             return NextResponse.json({ error: 'Form not found' }, { status: 404 });
-        }
-        // Check access
-        if (form.ownerUserId !== userId && !(form.isPublished && form.scope === 'project')) {
-            return NextResponse.json({ error: 'Not found' }, { status: 404 });
         }
         // Get latest draft version
         const [version] = await db
@@ -115,6 +140,8 @@ export async function PUT(request) {
             formUpdate.navLabel = body.navLabel;
         if (body.navIcon !== undefined)
             formUpdate.navIcon = body.navIcon;
+        if (body.navParentPath !== undefined)
+            formUpdate.navParentPath = body.navParentPath;
         await db.update(forms).set(formUpdate).where(eq(forms.id, formId));
         // Update fields if provided
         if (body.fields && Array.isArray(body.fields)) {

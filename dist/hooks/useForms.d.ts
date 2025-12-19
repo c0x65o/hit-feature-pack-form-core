@@ -87,6 +87,7 @@ export declare function useFormMutations(): {
         navWeight?: number;
         navLabel?: string;
         navIcon?: string;
+        navParentPath?: string;
     }) => Promise<FormRecord>;
     updateForm: (id: string, payload: Partial<{
         name: string;

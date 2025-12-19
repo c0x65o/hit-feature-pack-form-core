@@ -2,11 +2,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { formsAcls, forms } from '@/lib/feature-pack-schemas';
-import { eq, desc, and, or } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { getUserId } from '../auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+function getAuthHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('hit_token') : null;
+  if (token) return { Authorization: `Bearer ${token}` };
+  return {};
+}
 
 /**
  * GET /api/forms/[id]/acl
@@ -22,8 +29,8 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
-    const formsIndex = parts.indexOf('forms');
-    const formId = formsIndex >= 0 && parts.length > formsIndex + 1 ? parts[formsIndex + 1] : null;
+    // /api/forms/{formId}/acl -> formId is third-to-last part
+    const formId = parts[parts.length - 2] || null;
 
     if (!formId) {
       return NextResponse.json({ error: 'Missing form id' }, { status: 400 });
@@ -40,21 +47,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
-    // Only owner can view ACLs (unless ACL is enabled and they have MANAGE_ACL permission)
-    if (form.ownerUserId !== userId && !form.aclEnabled) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
+    // Only owner can view ACLs, or users with MANAGE_ACL permission
+    if (form.ownerUserId !== userId) {
+      // Check if user has MANAGE_ACL via ACL entry
+      const userAcls = await db
+        .select()
+        .from(formsAcls)
+        .where(
+          and(
+            eq(formsAcls.formId, formId),
+            eq(formsAcls.principalType, 'user'),
+            eq(formsAcls.principalId, userId)
+          )
+        );
 
-    // If ACL is enabled, check if user has MANAGE_ACL permission
-    if (form.aclEnabled && form.ownerUserId !== userId) {
-      // TODO: Implement ACL permission check
-      // For now, only owner can view ACLs
+      const hasManageAcl = userAcls.some(
+        (acl: { permissions: string[] }) => acl.permissions.includes('MANAGE_ACL')
+      );
+
+      if (!hasManageAcl) {
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      }
     }
 
     const items = await db
       .select()
       .from(formsAcls)
-      .where(and(eq(formsAcls.resourceType, 'form'), eq(formsAcls.resourceId, formId)))
+      .where(eq(formsAcls.formId, formId))
       .orderBy(desc(formsAcls.createdAt));
 
     return NextResponse.json({ items });
@@ -78,8 +97,7 @@ export async function POST(request: NextRequest) {
 
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
-    const formsIndex = parts.indexOf('forms');
-    const formId = formsIndex >= 0 && parts.length > formsIndex + 1 ? parts[formsIndex + 1] : null;
+    const formId = parts[parts.length - 2] || null;
 
     if (!formId) {
       return NextResponse.json({ error: 'Missing form id' }, { status: 400 });
@@ -106,15 +124,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
-    // Only owner can manage ACLs (unless ACL is enabled and they have MANAGE_ACL permission)
-    if (form.ownerUserId !== userId && !form.aclEnabled) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
+    // Only owner can manage ACLs, or users with MANAGE_ACL permission
+    if (form.ownerUserId !== userId) {
+      const userAcls = await db
+        .select()
+        .from(formsAcls)
+        .where(
+          and(
+            eq(formsAcls.formId, formId),
+            eq(formsAcls.principalType, 'user'),
+            eq(formsAcls.principalId, userId)
+          )
+        );
 
-    // If ACL is enabled, check if user has MANAGE_ACL permission
-    if (form.aclEnabled && form.ownerUserId !== userId) {
-      // TODO: Implement ACL permission check
-      // For now, only owner can manage ACLs
+      const hasManageAcl = userAcls.some(
+        (acl: { permissions: string[] }) => acl.permissions.includes('MANAGE_ACL')
+      );
+
+      if (!hasManageAcl) {
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      }
     }
 
     // Check if ACL entry already exists
@@ -123,8 +152,7 @@ export async function POST(request: NextRequest) {
       .from(formsAcls)
       .where(
         and(
-          eq(formsAcls.resourceType, 'form'),
-          eq(formsAcls.resourceId, formId),
+          eq(formsAcls.formId, formId),
           eq(formsAcls.principalType, body.principalType),
           eq(formsAcls.principalId, body.principalId)
         )
@@ -138,8 +166,7 @@ export async function POST(request: NextRequest) {
     const result = await db
       .insert(formsAcls)
       .values({
-        resourceType: 'form',
-        resourceId: formId,
+        formId: formId,
         principalType: body.principalType,
         principalId: body.principalId,
         permissions: Array.isArray(body.permissions) ? body.permissions : [],
@@ -168,13 +195,28 @@ export async function DELETE(request: NextRequest) {
 
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
-    const formsIndex = parts.indexOf('forms');
-    const aclIndex = parts.indexOf('acl');
-    const formId = formsIndex >= 0 && parts.length > formsIndex + 1 ? parts[formsIndex + 1] : null;
-    const aclId = aclIndex >= 0 && parts.length > aclIndex + 1 ? parts[aclIndex + 1] : null;
+    // /api/forms/{formId}/acl/{aclId} -> formId is fourth-to-last, aclId is last
+    const formId = parts[parts.length - 3] || null;
+    const aclId = parts[parts.length - 1] || null;
 
     if (!formId || !aclId) {
       return NextResponse.json({ error: 'Missing form or ACL id' }, { status: 400 });
+    }
+
+    // Get ACL entry
+    const [acl] = await db
+      .select()
+      .from(formsAcls)
+      .where(eq(formsAcls.id, aclId))
+      .limit(1);
+
+    if (!acl) {
+      return NextResponse.json({ error: 'ACL entry not found' }, { status: 404 });
+    }
+
+    // Verify ACL belongs to the form
+    if (acl.formId !== formId) {
+      return NextResponse.json({ error: 'ACL does not belong to this form' }, { status: 400 });
     }
 
     // Get form and check access
@@ -188,26 +230,26 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
-    // Only owner can manage ACLs
+    // Only owner can manage ACLs, or users with MANAGE_ACL permission
     if (form.ownerUserId !== userId) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
+      const userAcls = await db
+        .select()
+        .from(formsAcls)
+        .where(
+          and(
+            eq(formsAcls.formId, formId),
+            eq(formsAcls.principalType, 'user'),
+            eq(formsAcls.principalId, userId)
+          )
+        );
 
-    // Get ACL entry
-    const [acl] = await db
-      .select()
-      .from(formsAcls)
-      .where(
-        and(
-          eq(formsAcls.id, aclId),
-          eq(formsAcls.resourceType, 'form'),
-          eq(formsAcls.resourceId, formId)
-        )
-      )
-      .limit(1);
+      const hasManageAcl = userAcls.some(
+        (a: { permissions: string[] }) => a.permissions.includes('MANAGE_ACL')
+      );
 
-    if (!acl) {
-      return NextResponse.json({ error: 'ACL entry not found' }, { status: 404 });
+      if (!hasManageAcl) {
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      }
     }
 
     await db.delete(formsAcls).where(eq(formsAcls.id, aclId));
@@ -218,4 +260,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete ACL' }, { status: 500 });
   }
 }
-

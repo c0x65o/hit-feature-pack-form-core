@@ -185,6 +185,7 @@ export function useFormMutations() {
     navWeight?: number;
     navLabel?: string;
     navIcon?: string;
+    navParentPath?: string;
   }) => {
     setLoading(true);
     setError(null);

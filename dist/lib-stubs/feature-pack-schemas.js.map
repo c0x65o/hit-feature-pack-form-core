@@ -1,1 +1,1 @@
-{"version":3,"file":"feature-pack-schemas.js","sourceRoot":"","sources":["../../src/lib-stubs/feature-pack-schemas.ts"],"names":[],"mappings":"AAAA;;;;;;;;GAQG;AAEH,uEAAuE;AACvE,OAAO,EACL,KAAK,EACL,YAAY,EACZ,UAAU,EACV,WAAW,EACX,gBAAgB,EAChB,SAAS,GAYV,MAAM,iBAAiB,CAAC"}
+{"version":3,"file":"feature-pack-schemas.js","sourceRoot":"","sources":["../../src/lib-stubs/feature-pack-schemas.ts"],"names":[],"mappings":"AAAA;;;;;;;;GAQG;AAEH,uEAAuE;AACvE,OAAO,EACL,KAAK,EACL,YAAY,EACZ,UAAU,EACV,WAAW,EACX,gBAAgB,EAChB,SAAS,EACT,sBAAsB,EACtB,gBAAgB,GAajB,MAAM,iBAAiB,CAAC"}

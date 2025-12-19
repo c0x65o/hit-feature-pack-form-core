@@ -5,9 +5,9 @@
  */
 /**
  * Principal Types for ACL
- * Shared enum used across all feature packs (forms, vault, notepad, etc.)
+ * Note: Uses a forms-specific enum name to avoid conflicts when multiple packs are installed
  */
-export declare const principalTypeEnum: import("drizzle-orm/pg-core").PgEnum<["user", "group", "role"]>;
+export declare const formsPrincipalTypeEnum: import("drizzle-orm/pg-core").PgEnum<["user", "group", "role"]>;
 export declare const forms: import("drizzle-orm/pg-core").PgTableWithColumns<{
     name: "forms";
     schema: undefined;
@@ -693,7 +693,7 @@ export declare const formEntryHistory: import("drizzle-orm/pg-core").PgTableWith
 }>;
 /**
  * ACL Table (Access Control Entries)
- * Defines permissions for forms and form entries
+ * Defines permissions for forms
  */
 export declare const formsAcls: import("drizzle-orm/pg-core").PgTableWithColumns<{
     name: "forms_acls";
@@ -711,20 +711,8 @@ export declare const formsAcls: import("drizzle-orm/pg-core").PgTableWithColumns
             enumValues: undefined;
             baseColumn: never;
         }, {}, {}>;
-        resourceType: import("drizzle-orm/pg-core").PgColumn<{
-            name: "resource_type";
-            tableName: "forms_acls";
-            dataType: "string";
-            columnType: "PgVarchar";
-            data: string;
-            driverParam: string;
-            notNull: true;
-            hasDefault: false;
-            enumValues: [string, ...string[]];
-            baseColumn: never;
-        }, {}, {}>;
-        resourceId: import("drizzle-orm/pg-core").PgColumn<{
-            name: "resource_id";
+        formId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "form_id";
             tableName: "forms_acls";
             dataType: "string";
             columnType: "PgVarchar";
@@ -798,6 +786,21 @@ export declare const formsAcls: import("drizzle-orm/pg-core").PgTableWithColumns
     };
     dialect: "pg";
 }>;
+/**
+ * Permission Constants
+ * Simplified permissions for forms:
+ * - READ: Can view form entries
+ * - WRITE: Can create and edit entries
+ * - DELETE: Can delete entries
+ * - MANAGE_ACL: Can manage access control lists (grant/revoke permissions)
+ */
+export declare const FORM_PERMISSIONS: {
+    readonly READ: "READ";
+    readonly WRITE: "WRITE";
+    readonly DELETE: "DELETE";
+    readonly MANAGE_ACL: "MANAGE_ACL";
+};
+export type FormPermission = (typeof FORM_PERMISSIONS)[keyof typeof FORM_PERMISSIONS];
 export type Form = typeof forms.$inferSelect;
 export type InsertForm = typeof forms.$inferInsert;
 export type FormVersion = typeof formVersions.$inferSelect;

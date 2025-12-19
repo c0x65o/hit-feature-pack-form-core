@@ -6,9 +6,9 @@ import { index, pgTable, varchar, text, boolean, integer, jsonb, timestamp, uuid
  */
 /**
  * Principal Types for ACL
- * Shared enum used across all feature packs (forms, vault, notepad, etc.)
+ * Note: Uses a forms-specific enum name to avoid conflicts when multiple packs are installed
  */
-export const principalTypeEnum = pgEnum('principal_type', ['user', 'group', 'role']);
+export const formsPrincipalTypeEnum = pgEnum('forms_principal_type', ['user', 'group', 'role']);
 export const forms = pgTable('forms', {
     id: varchar('id', { length: 255 }).primaryKey(),
     name: varchar('name', { length: 255 }).notNull(),
@@ -98,21 +98,34 @@ export const formEntryHistory = pgTable('form_entry_history', {
 });
 /**
  * ACL Table (Access Control Entries)
- * Defines permissions for forms and form entries
+ * Defines permissions for forms
  */
 export const formsAcls = pgTable('forms_acls', {
     id: uuid('id').primaryKey().defaultRandom(),
-    resourceType: varchar('resource_type', { length: 50 }).notNull(), // form | entry
-    resourceId: varchar('resource_id', { length: 255 }).notNull(), // ID of form or entry
-    principalType: principalTypeEnum('principal_type').notNull(), // user | group | role
+    formId: varchar('form_id', { length: 255 }).notNull(), // ID of the form
+    principalType: formsPrincipalTypeEnum('principal_type').notNull(), // user | group | role
     principalId: varchar('principal_id', { length: 255 }).notNull(), // User email, group ID, or role name
-    // Permissions: VIEW, CREATE, EDIT, DELETE, MANAGE_ACL
+    // Permissions: READ, WRITE, DELETE, MANAGE_ACL
     permissions: jsonb('permissions').$type().notNull(),
     createdBy: varchar('created_by', { length: 255 }).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
-    resourceIdx: index('forms_acls_resource_idx').on(table.resourceType, table.resourceId),
+    formIdx: index('forms_acls_form_idx').on(table.formId),
     principalIdx: index('forms_acls_principal_idx').on(table.principalType, table.principalId),
-    resourcePrincipalIdx: unique('forms_acls_resource_principal_unique').on(table.resourceType, table.resourceId, table.principalType, table.principalId), // One ACL entry per resource+principal
+    formPrincipalIdx: unique('forms_acls_form_principal_unique').on(table.formId, table.principalType, table.principalId), // One ACL entry per form+principal
 }));
+/**
+ * Permission Constants
+ * Simplified permissions for forms:
+ * - READ: Can view form entries
+ * - WRITE: Can create and edit entries
+ * - DELETE: Can delete entries
+ * - MANAGE_ACL: Can manage access control lists (grant/revoke permissions)
+ */
+export const FORM_PERMISSIONS = {
+    READ: 'READ',
+    WRITE: 'WRITE',
+    DELETE: 'DELETE',
+    MANAGE_ACL: 'MANAGE_ACL',
+};
 //# sourceMappingURL=forms.js.map

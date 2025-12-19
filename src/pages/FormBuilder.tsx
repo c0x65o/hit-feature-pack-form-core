@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Plus, Save, UploadCloud, ClipboardList, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Save, UploadCloud, ClipboardList, FileText, Share2 } from 'lucide-react';
 import { useUi, type BreadcrumbItem } from '@hit/ui-kit';
 import {
   FieldType,
@@ -10,6 +10,7 @@ import {
   useForm,
   useFormMutations,
 } from '../hooks/useForms';
+import { FormAclModal } from '../components/FormAclModal';
 
 interface Props {
   id?: string;
@@ -44,14 +45,39 @@ export function FormBuilder({ id, onNavigate }: Props) {
 
   // Nav config
   const [navShow, setNavShow] = useState(true);
-  const [navPlacement, setNavPlacement] = useState<'under_forms' | 'top_level'>('under_forms');
+  const [navPlacement, setNavPlacement] = useState<'under_forms' | 'top_level' | 'custom'>('under_forms');
   const [navGroup, setNavGroup] = useState('main');
   const [navWeight, setNavWeight] = useState<number>(500);
   const [navLabel, setNavLabel] = useState('');
   const [navIcon, setNavIcon] = useState('');
+  const [navParentPath, setNavParentPath] = useState('');
+  const [availableNavPaths, setAvailableNavPaths] = useState<Array<{ path: string; label: string; depth: number }>>([]);
 
   const [fields, setFields] = useState<any[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showAclModal, setShowAclModal] = useState(false);
+
+  // Fetch available nav paths for tree picker
+  useEffect(() => {
+    async function loadNavPaths() {
+      try {
+        const res = await fetch('/api/nav-tree');
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableNavPaths(data.paths || []);
+        }
+      } catch {
+        // Nav tree API not available, use static fallback
+        setAvailableNavPaths([
+          { path: '/marketing', label: 'Marketing', depth: 0 },
+          { path: '/marketing/projects', label: 'Marketing → Projects', depth: 1 },
+          { path: '/marketing/setup', label: 'Marketing → Setup', depth: 1 },
+          { path: '/music', label: 'Music', depth: 0 },
+        ]);
+      }
+    }
+    loadNavPaths();
+  }, []);
 
   useEffect(() => {
     if (form) {
@@ -60,7 +86,15 @@ export function FormBuilder({ id, onNavigate }: Props) {
       setDescription(form.description || '');
       setScope(form.scope);
       setNavShow(form.navShow ?? true);
-      setNavPlacement((form.navPlacement as any) || 'under_forms');
+      // Determine placement from navParentPath
+      if (form.navParentPath) {
+        setNavPlacement('custom');
+        setNavParentPath(form.navParentPath);
+      } else if (form.navPlacement === 'top_level') {
+        setNavPlacement('top_level');
+      } else {
+        setNavPlacement('under_forms');
+      }
       setNavGroup(form.navGroup || 'main');
       setNavWeight(typeof form.navWeight === 'number' ? form.navWeight : 500);
       setNavLabel(form.navLabel || '');
@@ -125,11 +159,12 @@ export function FormBuilder({ id, onNavigate }: Props) {
           description: description.trim() || undefined,
           scope,
           navShow,
-          navPlacement,
+          navPlacement: navPlacement === 'custom' ? 'under_forms' : navPlacement,
           navGroup,
           navWeight,
           navLabel: navLabel.trim() || undefined,
           navIcon: navIcon.trim() || undefined,
+          navParentPath: navPlacement === 'custom' ? navParentPath : undefined,
         });
         navigate(`/forms/${created.id}`);
         return;
@@ -147,11 +182,12 @@ export function FormBuilder({ id, onNavigate }: Props) {
         description: description.trim() || undefined,
         scope,
         navShow,
-        navPlacement,
+        navPlacement: navPlacement === 'custom' ? 'under_forms' : navPlacement,
         navGroup,
         navWeight,
         navLabel: navLabel.trim() || undefined,
         navIcon: navIcon.trim() || undefined,
+        navParentPath: navPlacement === 'custom' ? navParentPath : null,
         draft: { fields },
       } as any);
       await refresh();
@@ -230,6 +266,12 @@ export function FormBuilder({ id, onNavigate }: Props) {
             </Button>
           )}
           {!isNew && (
+            <Button variant="secondary" onClick={() => setShowAclModal(true)}>
+              <Share2 size={16} className="mr-2" />
+              Share
+            </Button>
+          )}
+          {!isNew && (
             form?.isPublished ? (
               <Button variant="secondary" onClick={handleUnpublish} disabled={saving}>
                 Unpublish
@@ -259,15 +301,28 @@ export function FormBuilder({ id, onNavigate }: Props) {
           <Input label="Name" value={name} onChange={setName} placeholder="e.g. Customer Intake" required />
           <Input label="Slug" value={slug} onChange={setSlug} placeholder="e.g. customer-intake" />
           <TextArea label="Description" value={description} onChange={setDescription} rows={3} />
-          <Select
-            label="Scope"
-            value={scope}
-            onChange={(v: any) => setScope(v as FormScope)}
-            options={[
-              { value: 'private', label: 'Private (owner only)' },
-              { value: 'project', label: 'Project (all authenticated users)' },
-            ]}
-          />
+        </div>
+      </Card>
+
+      <Card>
+        <div className="space-y-4">
+          <div className="text-lg font-semibold">Sharing & Access</div>
+          <p className="text-sm text-gray-500">
+            Only you can access this form unless you add others below. Admins can always access all forms.
+          </p>
+          {isNew ? (
+            <p className="text-sm text-amber-600">
+              Save the form first to configure access permissions.
+            </p>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={() => setShowAclModal(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Manage Access
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -285,12 +340,30 @@ export function FormBuilder({ id, onNavigate }: Props) {
           <Select
             label="Placement"
             value={navPlacement}
-            onChange={(v: any) => setNavPlacement(v)}
+            onChange={(v: any) => {
+              setNavPlacement(v);
+              if (v !== 'custom') setNavParentPath('');
+            }}
             options={[
-              { value: 'under_forms', label: 'Inside Forms section' },
-              { value: 'top_level', label: 'Top-level item' },
+              { value: 'under_forms', label: 'Inside Custom Forms section' },
+              { value: 'top_level', label: 'Top-level (root sidebar)' },
+              { value: 'custom', label: 'Nested under existing nav item...' },
             ]}
           />
+          {navPlacement === 'custom' && (
+            <Select
+              label="Parent Nav Item"
+              value={navParentPath}
+              onChange={(v: any) => setNavParentPath(String(v))}
+              options={[
+                { value: '', label: '— Select parent —' },
+                ...availableNavPaths.map((p) => ({
+                  value: p.path,
+                  label: '  '.repeat(p.depth) + p.label,
+                })),
+              ]}
+            />
+          )}
           <Select
             label="Group"
             value={navGroup}
@@ -555,6 +628,15 @@ export function FormBuilder({ id, onNavigate }: Props) {
           ))}
         </div>
       </Card>
+
+      {!isNew && id && (
+        <FormAclModal
+          formId={id}
+          isOpen={showAclModal}
+          onClose={() => setShowAclModal(false)}
+          onUpdate={() => refresh()}
+        />
+      )}
     </Page>
   );
 }

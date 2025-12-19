@@ -1,9 +1,10 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Plus, Save, UploadCloud, ClipboardList, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Save, UploadCloud, ClipboardList, FileText, Share2 } from 'lucide-react';
 import { useUi } from '@hit/ui-kit';
 import { useForms, useForm, useFormMutations, } from '../hooks/useForms';
+import { FormAclModal } from '../components/FormAclModal';
 function slugify(input) {
     return input
         .trim()
@@ -34,8 +35,33 @@ export function FormBuilder({ id, onNavigate }) {
     const [navWeight, setNavWeight] = useState(500);
     const [navLabel, setNavLabel] = useState('');
     const [navIcon, setNavIcon] = useState('');
+    const [navParentPath, setNavParentPath] = useState('');
+    const [availableNavPaths, setAvailableNavPaths] = useState([]);
     const [fields, setFields] = useState([]);
     const [localError, setLocalError] = useState(null);
+    const [showAclModal, setShowAclModal] = useState(false);
+    // Fetch available nav paths for tree picker
+    useEffect(() => {
+        async function loadNavPaths() {
+            try {
+                const res = await fetch('/api/nav-tree');
+                if (res.ok) {
+                    const data = await res.json();
+                    setAvailableNavPaths(data.paths || []);
+                }
+            }
+            catch {
+                // Nav tree API not available, use static fallback
+                setAvailableNavPaths([
+                    { path: '/marketing', label: 'Marketing', depth: 0 },
+                    { path: '/marketing/projects', label: 'Marketing → Projects', depth: 1 },
+                    { path: '/marketing/setup', label: 'Marketing → Setup', depth: 1 },
+                    { path: '/music', label: 'Music', depth: 0 },
+                ]);
+            }
+        }
+        loadNavPaths();
+    }, []);
     useEffect(() => {
         if (form) {
             setName(form.name);
@@ -43,7 +69,17 @@ export function FormBuilder({ id, onNavigate }) {
             setDescription(form.description || '');
             setScope(form.scope);
             setNavShow(form.navShow ?? true);
-            setNavPlacement(form.navPlacement || 'under_forms');
+            // Determine placement from navParentPath
+            if (form.navParentPath) {
+                setNavPlacement('custom');
+                setNavParentPath(form.navParentPath);
+            }
+            else if (form.navPlacement === 'top_level') {
+                setNavPlacement('top_level');
+            }
+            else {
+                setNavPlacement('under_forms');
+            }
             setNavGroup(form.navGroup || 'main');
             setNavWeight(typeof form.navWeight === 'number' ? form.navWeight : 500);
             setNavLabel(form.navLabel || '');
@@ -104,11 +140,12 @@ export function FormBuilder({ id, onNavigate }) {
                     description: description.trim() || undefined,
                     scope,
                     navShow,
-                    navPlacement,
+                    navPlacement: navPlacement === 'custom' ? 'under_forms' : navPlacement,
                     navGroup,
                     navWeight,
                     navLabel: navLabel.trim() || undefined,
                     navIcon: navIcon.trim() || undefined,
+                    navParentPath: navPlacement === 'custom' ? navParentPath : undefined,
                 });
                 navigate(`/forms/${created.id}`);
                 return;
@@ -126,11 +163,12 @@ export function FormBuilder({ id, onNavigate }) {
                 description: description.trim() || undefined,
                 scope,
                 navShow,
-                navPlacement,
+                navPlacement: navPlacement === 'custom' ? 'under_forms' : navPlacement,
                 navGroup,
                 navWeight,
                 navLabel: navLabel.trim() || undefined,
                 navIcon: navIcon.trim() || undefined,
+                navParentPath: navPlacement === 'custom' ? navParentPath : null,
                 draft: { fields },
             });
             await refresh();
@@ -176,13 +214,21 @@ export function FormBuilder({ id, onNavigate }) {
         ...(!isNew && form ? [{ label: form.name, icon: _jsx(FileText, { size: 14 }) }] : []),
         { label: isNew ? 'New' : 'Edit' },
     ];
-    return (_jsxs(Page, { title: isNew ? 'New Form' : `Edit Form`, description: isNew ? 'Create a new runtime form' : form?.isPublished ? 'Published form' : 'Draft form', breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsxs("div", { className: "flex items-center gap-2", children: [!isNew && (_jsx(Button, { variant: "secondary", onClick: () => navigate(`/forms/${id}/entries`), children: "View Entries" })), !isNew && (form?.isPublished ? (_jsx(Button, { variant: "secondary", onClick: handleUnpublish, disabled: saving, children: "Unpublish" })) : (_jsxs(Button, { variant: "secondary", onClick: handlePublish, disabled: saving, children: [_jsx(UploadCloud, { size: 16, className: "mr-2" }), "Publish"] }))), _jsxs(Button, { variant: "primary", onClick: () => handleSave(), disabled: saving, children: [_jsx(Save, { size: 16, className: "mr-2" }), "Save"] })] }), children: [(saveError || localError) && (_jsx(Alert, { variant: "error", title: "Error saving", children: localError || saveError?.message })), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx(Input, { label: "Name", value: name, onChange: setName, placeholder: "e.g. Customer Intake", required: true }), _jsx(Input, { label: "Slug", value: slug, onChange: setSlug, placeholder: "e.g. customer-intake" }), _jsx(TextArea, { label: "Description", value: description, onChange: setDescription, rows: 3 }), _jsx(Select, { label: "Scope", value: scope, onChange: (v) => setScope(v), options: [
-                                { value: 'private', label: 'Private (owner only)' },
-                                { value: 'project', label: 'Project (all authenticated users)' },
-                            ] })] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx("div", { className: "text-lg font-semibold", children: "Navigation" }), _jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: navShow, onChange: (e) => setNavShow(e.target.checked) }), "Show in navigation when published"] }), _jsx(Select, { label: "Placement", value: navPlacement, onChange: (v) => setNavPlacement(v), options: [
-                                { value: 'under_forms', label: 'Inside Forms section' },
-                                { value: 'top_level', label: 'Top-level item' },
-                            ] }), _jsx(Select, { label: "Group", value: navGroup, onChange: (v) => setNavGroup(String(v)), options: [
+    return (_jsxs(Page, { title: isNew ? 'New Form' : `Edit Form`, description: isNew ? 'Create a new runtime form' : form?.isPublished ? 'Published form' : 'Draft form', breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsxs("div", { className: "flex items-center gap-2", children: [!isNew && (_jsx(Button, { variant: "secondary", onClick: () => navigate(`/forms/${id}/entries`), children: "View Entries" })), !isNew && (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { size: 16, className: "mr-2" }), "Share"] })), !isNew && (form?.isPublished ? (_jsx(Button, { variant: "secondary", onClick: handleUnpublish, disabled: saving, children: "Unpublish" })) : (_jsxs(Button, { variant: "secondary", onClick: handlePublish, disabled: saving, children: [_jsx(UploadCloud, { size: 16, className: "mr-2" }), "Publish"] }))), _jsxs(Button, { variant: "primary", onClick: () => handleSave(), disabled: saving, children: [_jsx(Save, { size: 16, className: "mr-2" }), "Save"] })] }), children: [(saveError || localError) && (_jsx(Alert, { variant: "error", title: "Error saving", children: localError || saveError?.message })), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx(Input, { label: "Name", value: name, onChange: setName, placeholder: "e.g. Customer Intake", required: true }), _jsx(Input, { label: "Slug", value: slug, onChange: setSlug, placeholder: "e.g. customer-intake" }), _jsx(TextArea, { label: "Description", value: description, onChange: setDescription, rows: 3 })] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-4", children: [_jsx("div", { className: "text-lg font-semibold", children: "Sharing & Access" }), _jsx("p", { className: "text-sm text-gray-500", children: "Only you can access this form unless you add others below. Admins can always access all forms." }), isNew ? (_jsx("p", { className: "text-sm text-amber-600", children: "Save the form first to configure access permissions." })) : (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { className: "w-4 h-4 mr-2" }), "Manage Access"] }))] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx("div", { className: "text-lg font-semibold", children: "Navigation" }), _jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: navShow, onChange: (e) => setNavShow(e.target.checked) }), "Show in navigation when published"] }), _jsx(Select, { label: "Placement", value: navPlacement, onChange: (v) => {
+                                setNavPlacement(v);
+                                if (v !== 'custom')
+                                    setNavParentPath('');
+                            }, options: [
+                                { value: 'under_forms', label: 'Inside Custom Forms section' },
+                                { value: 'top_level', label: 'Top-level (root sidebar)' },
+                                { value: 'custom', label: 'Nested under existing nav item...' },
+                            ] }), navPlacement === 'custom' && (_jsx(Select, { label: "Parent Nav Item", value: navParentPath, onChange: (v) => setNavParentPath(String(v)), options: [
+                                { value: '', label: '— Select parent —' },
+                                ...availableNavPaths.map((p) => ({
+                                    value: p.path,
+                                    label: '  '.repeat(p.depth) + p.label,
+                                })),
+                            ] })), _jsx(Select, { label: "Group", value: navGroup, onChange: (v) => setNavGroup(String(v)), options: [
                                 { value: 'main', label: 'Main' },
                                 { value: 'system', label: 'System' },
                             ] }), _jsx(Input, { label: "Weight", value: String(navWeight), onChange: (v) => setNavWeight(Number(v) || 500), placeholder: "Lower shows higher (default 500)" }), _jsx(Input, { label: "Nav label override", value: navLabel, onChange: setNavLabel, placeholder: "Leave empty to use form name" }), _jsx(Input, { label: "Icon (Lucide name)", value: navIcon, onChange: setNavIcon, placeholder: "e.g. FileText (optional)" })] }) }), _jsxs(Card, { children: [_jsxs("div", { className: "flex items-center justify-between mb-4", children: [_jsxs("div", { children: [_jsx("div", { className: "text-lg font-semibold", children: "Fields" }), _jsx("div", { className: "text-sm text-gray-500", children: "Order is applied to list/detail/edit screens" })] }), _jsxs(Button, { variant: "secondary", onClick: addField, children: [_jsx(Plus, { size: 16, className: "mr-2" }), "Add Field"] })] }), _jsxs("div", { className: "space-y-4", children: [fields.length === 0 && (_jsx("div", { className: "text-sm text-gray-500", children: "No fields yet. Add your first field." })), fields.map((f, idx) => (_jsxs("div", { className: "border border-gray-800 rounded-lg p-4 space-y-3", children: [_jsxs("div", { className: "flex items-center gap-2", children: [_jsx(Input, { label: "Key", value: f.key, onChange: (v) => {
@@ -299,7 +345,7 @@ export function FormBuilder({ id, onNavigate }) {
                                                                 },
                                                             };
                                                             setFields(next);
-                                                        } }), "Allow multiple"] })] }))] }, f.id)))] })] })] }));
+                                                        } }), "Allow multiple"] })] }))] }, f.id)))] })] }), !isNew && id && (_jsx(FormAclModal, { formId: id, isOpen: showAclModal, onClose: () => setShowAclModal(false), onUpdate: () => refresh() }))] }));
 }
 export default FormBuilder;
 //# sourceMappingURL=FormBuilder.js.map

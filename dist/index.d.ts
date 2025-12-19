@@ -8,5 +8,6 @@
 export { FormList, FormListPage, FormBuilder, FormBuilderPage, EntryList, EntryListPage, EntryDetail, EntryDetailPage, EntryEdit, EntryEditPage, } from './pages/index';
 export * from './hooks/index';
 export { navContributions as nav } from './nav';
-export { forms, formVersions, formFields, formEntries, formEntryHistory, formsAcls, type Form, type FormVersion, type FormField, type FormEntry, type FormEntryHistory, type FormsAcl, type InsertForm, type InsertFormVersion, type InsertFormField, type InsertFormEntry, type InsertFormsAcl, } from './schema/forms';
+export { forms, formVersions, formFields, formEntries, formEntryHistory, formsAcls, formsPrincipalTypeEnum, FORM_PERMISSIONS, type Form, type FormVersion, type FormField, type FormEntry, type FormEntryHistory, type FormsAcl, type FormPermission, type InsertForm, type InsertFormVersion, type InsertFormField, type InsertFormEntry, type InsertFormsAcl, } from './schema/forms';
+export { FormAclModal } from './components/FormAclModal';
 //# sourceMappingURL=index.d.ts.map

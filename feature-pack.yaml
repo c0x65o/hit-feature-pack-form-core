@@ -41,7 +41,7 @@ nav:
 # Schema contributions (Drizzle tables)
 schema:
   source: src/schema/forms.ts
-  exports: [forms, formVersions, formFields, formEntries, formEntryHistory, formsAcls]
+  exports: [forms, formVersions, formFields, formEntries, formEntryHistory, formsAcls, formsPrincipalTypeEnum]
 
 # API routes expected by this pack
 # Handlers are exported from the feature pack and imported at runtime
