@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { forms, formVersions, formFields, formEntries, formEntryHistory, formsAcls } from '@/lib/feature-pack-schemas';
 import { and, desc, eq, or } from 'drizzle-orm';
 import { extractUserFromRequest, getUserId } from '../auth';
+import { FORM_PERMISSIONS } from '../../schema/forms';
 
 /**
  * Check if user can access a form (owner, admin, or has ACL entry)
@@ -38,6 +39,44 @@ async function canAccessForm(
     .limit(1);
 
   return aclEntries.length > 0;
+}
+
+/**
+ * Check if user can edit a form (owner, admin, or has ACL entry with MANAGE_ACL permission)
+ */
+async function canEditForm(
+  db: ReturnType<typeof getDb>,
+  formId: string,
+  userId: string,
+  roles: string[] = []
+): Promise<boolean> {
+  // Check if user is owner
+  const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
+  if (!form) return false;
+  if (form.ownerUserId === userId) return true;
+
+  // Check if user is admin
+  if (roles.includes('admin') || roles.includes('Admin')) return true;
+
+  // Check ACL entries for MANAGE_ACL permission
+  const principalIds = [userId, ...roles].filter(Boolean);
+  if (principalIds.length === 0) return false;
+
+  const aclEntries = await db
+    .select()
+    .from(formsAcls)
+    .where(
+      and(
+        eq(formsAcls.formId, formId),
+        or(...principalIds.map((id) => eq(formsAcls.principalId, id)))
+      )
+    );
+
+  if (aclEntries.length === 0) return false;
+
+  // Check if user has MANAGE_ACL permission
+  const allPermissions = aclEntries.flatMap((e: { permissions: string[] | null }) => e.permissions || []);
+  return allPermissions.includes(FORM_PERMISSIONS.MANAGE_ACL);
 }
 
 export const dynamic = 'force-dynamic';
@@ -124,8 +163,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing form id' }, { status: 400 });
     }
 
-    const userId = getUserId(request);
-    if (!userId) {
+    const user = extractUserFromRequest(request);
+    if (!user?.sub) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -142,8 +181,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
-    // Check ownership
-    if (existingForm.ownerUserId !== userId) {
+    // Check access (owner, admin, or ACL with MANAGE_ACL permission)
+    const canEdit = await canEditForm(db, formId, user.sub, user.roles || []);
+    if (!canEdit) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
@@ -162,8 +202,9 @@ export async function PUT(request: NextRequest) {
 
     await db.update(forms).set(formUpdate).where(eq(forms.id, formId));
 
-    // Update fields if provided
-    if (body.fields && Array.isArray(body.fields)) {
+    // Update fields if provided (check both body.fields and body.draft.fields for compatibility)
+    const fieldsToUpdate = body.draft?.fields || body.fields;
+    if (fieldsToUpdate && Array.isArray(fieldsToUpdate)) {
       // Get current draft version
       const [version] = await db
         .select()
@@ -177,8 +218,8 @@ export async function PUT(request: NextRequest) {
         await db.delete(formFields).where(eq(formFields.versionId, version.id));
 
         // Insert new fields
-        for (let i = 0; i < body.fields.length; i++) {
-          const field = body.fields[i];
+        for (let i = 0; i < fieldsToUpdate.length; i++) {
+          const field = fieldsToUpdate[i];
           await db.insert(formFields).values({
             id: field.id || crypto.randomUUID(),
             formId: formId,
@@ -194,11 +235,12 @@ export async function PUT(request: NextRequest) {
           });
         }
 
-        // Update list config if provided
-        if (body.listConfig !== undefined) {
+        // Update list config if provided (check both body.draft.listConfig and body.listConfig for compatibility)
+        const listConfigToUpdate = body.draft?.listConfig !== undefined ? body.draft.listConfig : body.listConfig;
+        if (listConfigToUpdate !== undefined) {
           await db
             .update(formVersions)
-            .set({ listConfig: body.listConfig })
+            .set({ listConfig: listConfigToUpdate })
             .where(eq(formVersions.id, version.id));
         }
       }
@@ -245,8 +287,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing form id' }, { status: 400 });
     }
 
-    const userId = getUserId(request);
-    if (!userId) {
+    const user = extractUserFromRequest(request);
+    if (!user?.sub) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -261,8 +303,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
-    // Check ownership
-    if (existingForm.ownerUserId !== userId) {
+    // Check access (owner, admin, or ACL with MANAGE_ACL permission)
+    const canEdit = await canEditForm(db, formId, user.sub, user.roles || []);
+    if (!canEdit) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 

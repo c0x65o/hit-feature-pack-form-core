@@ -40,6 +40,7 @@ export type FieldType =
   | 'textarea'
   | 'number'
   | 'date'
+  | 'datetime'
   | 'select'
   | 'checkbox'
   | 'reference'

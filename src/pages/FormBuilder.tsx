@@ -438,6 +438,7 @@ export function FormBuilder({ id, onNavigate }: Props) {
                     { value: 'textarea', label: 'Textarea' },
                     { value: 'number', label: 'Number' },
                     { value: 'date', label: 'Date' },
+                    { value: 'datetime', label: 'DateTime' },
                     { value: 'select', label: 'Select' },
                     { value: 'checkbox', label: 'Checkbox' },
                     { value: 'reference', label: 'Reference' },
@@ -445,6 +446,128 @@ export function FormBuilder({ id, onNavigate }: Props) {
                   ]}
                 />
               </div>
+
+              {/* Default Value Input - Dynamic by Type */}
+              {(() => {
+                const renderDefaultValue = () => {
+                  const currentDefault = f.defaultValue;
+                  
+                  switch (f.type) {
+                    case 'text':
+                    case 'url':
+                    case 'textarea':
+                      return (
+                        <Input
+                          label="Default value (optional)"
+                          value={currentDefault != null ? String(currentDefault) : ''}
+                          onChange={(v: string) => {
+                            const next = [...fields];
+                            next[idx] = { ...next[idx], defaultValue: v || null };
+                            setFields(next);
+                          }}
+                          placeholder="Enter default value"
+                        />
+                      );
+                    case 'number':
+                      return (
+                        <Input
+                          label="Default value (optional)"
+                          value={currentDefault != null ? String(currentDefault) : ''}
+                          onChange={(v: string) => {
+                            const next = [...fields];
+                            next[idx] = { ...next[idx], defaultValue: v ? Number(v) : null };
+                            setFields(next);
+                          }}
+                          placeholder="Enter default number"
+                        />
+                      );
+                    case 'date':
+                      return (
+                        <Input
+                          label="Default value (optional)"
+                          value={currentDefault != null ? String(currentDefault) : ''}
+                          onChange={(v: string) => {
+                            const next = [...fields];
+                            next[idx] = { ...next[idx], defaultValue: v || null };
+                            setFields(next);
+                          }}
+                          placeholder="YYYY-MM-DD"
+                        />
+                      );
+                    case 'datetime':
+                      return (
+                        <Input
+                          label="Default value (optional)"
+                          value={currentDefault != null ? String(currentDefault) : ''}
+                          onChange={(v: string) => {
+                            const next = [...fields];
+                            next[idx] = { ...next[idx], defaultValue: v || null };
+                            setFields(next);
+                          }}
+                          placeholder="YYYY-MM-DDTHH:mm"
+                        />
+                      );
+                    case 'select': {
+                      const optionsText = String(f.config?.optionsText || '');
+                      const options = optionsText
+                        .split('\n')
+                        .map((line) => line.trim())
+                        .filter(Boolean)
+                        .map((line) => {
+                          const [value] = line.split('|');
+                          return { value: (value || '').trim(), label: line.trim() };
+                        })
+                        .filter((o) => o.value);
+                      
+                      return (
+                        <Select
+                          label="Default value (optional)"
+                          value={currentDefault != null ? String(currentDefault) : ''}
+                          onChange={(v: any) => {
+                            const next = [...fields];
+                            next[idx] = { ...next[idx], defaultValue: v || null };
+                            setFields(next);
+                          }}
+                          options={[
+                            { value: '', label: '— No default —' },
+                            ...options,
+                          ]}
+                        />
+                      );
+                    }
+                    case 'checkbox':
+                      return (
+                        <label className="text-sm flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(currentDefault)}
+                            onChange={(e) => {
+                              const next = [...fields];
+                              next[idx] = { ...next[idx], defaultValue: e.target.checked };
+                              setFields(next);
+                            }}
+                          />
+                          Default checked
+                        </label>
+                      );
+                    case 'reference':
+                    case 'entity_reference':
+                      return (
+                        <div className="text-sm text-gray-500">
+                          Default values for references are not supported.
+                        </div>
+                      );
+                    default:
+                      return null;
+                  }
+                };
+                
+                return (
+                  <div className="border-t border-gray-700 pt-3">
+                    {renderDefaultValue()}
+                  </div>
+                );
+              })()}
 
               <div className="flex items-center gap-3">
                 <label className="text-sm flex items-center gap-2">

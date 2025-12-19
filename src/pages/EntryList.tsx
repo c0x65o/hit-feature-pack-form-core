@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Eye, Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useUi } from '@hit/ui-kit';
 import { useEntries, useForm, useEntryMutations } from '../hooks/useForms';
 
@@ -46,6 +46,18 @@ export function EntryList({ id, onNavigate }: Props) {
             </a>
           );
         }
+        if (f.type === 'datetime' || f.type === 'date') {
+          try {
+            const date = new Date(String(v));
+            if (!isNaN(date.getTime())) {
+              return f.type === 'datetime' 
+                ? date.toLocaleString()
+                : date.toLocaleDateString();
+            }
+          } catch {
+            // Fall through to string display
+          }
+        }
         // Friendly display for reference fields
         if (Array.isArray(v)) {
           return v
@@ -75,18 +87,19 @@ export function EntryList({ id, onNavigate }: Props) {
         sortable: false,
         hideable: false,
         render: (_: unknown, row: any) => (
-          <div className="flex items-center justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${formId}/entries/${row.id}`)}>
-              <Eye size={16} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${formId}/entries/${row.id}/edit`)}>
+          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="sm" onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/forms/${formId}/entries/${row.id}/edit`);
+            }}>
               <Edit size={16} />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               disabled={mutating}
-              onClick={async () => {
+              onClick={async (e) => {
+                e.stopPropagation();
                 if (!confirm('Delete this entry?')) return;
                 await deleteEntry(row.id);
                 refresh();
@@ -110,14 +123,10 @@ export function EntryList({ id, onNavigate }: Props) {
 
   return (
     <Page
-      title={form?.name ? `${form.name} — Entries` : 'Entries'}
+      title={form?.name || ''}
       description={form?.scope === 'private' ? 'Private entries (owner-only)' : 'Project entries'}
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => navigate(`/forms/${formId}`)}>
-            <ArrowLeft size={16} className="mr-2" />
-            Back
-          </Button>
           <Button variant="primary" onClick={() => navigate(`/forms/${formId}/entries/new`)}>
             <Plus size={16} className="mr-2" />
             New Entry
@@ -139,6 +148,7 @@ export function EntryList({ id, onNavigate }: Props) {
           loading={loading}
           searchable
           pageSize={25}
+          onRowClick={(row) => navigate(`/forms/${formId}/entries/${row.id}`)}
         />
       </Card>
     </Page>

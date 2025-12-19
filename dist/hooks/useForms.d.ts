@@ -1,6 +1,6 @@
 export type FormScope = 'private' | 'project';
 export type NavPlacement = 'under_forms' | 'top_level';
-export type FieldType = 'text' | 'url' | 'textarea' | 'number' | 'date' | 'select' | 'checkbox' | 'reference' | 'entity_reference';
+export type FieldType = 'text' | 'url' | 'textarea' | 'number' | 'date' | 'datetime' | 'select' | 'checkbox' | 'reference' | 'entity_reference';
 export interface FormRecord {
     id: string;
     name: string;

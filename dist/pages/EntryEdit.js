@@ -23,6 +23,22 @@ export function EntryEdit({ id, entryId, onNavigate }) {
             .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     }, [version]);
     const [data, setData] = useState({});
+    const [defaultsInitialized, setDefaultsInitialized] = useState(false);
+    // Initialize default values for new entries
+    useEffect(() => {
+        if (isNew && fields.length > 0 && !defaultsInitialized && !entry) {
+            const defaults = {};
+            fields.forEach((f) => {
+                if (f.defaultValue !== null && f.defaultValue !== undefined) {
+                    defaults[f.key] = f.defaultValue;
+                }
+            });
+            if (Object.keys(defaults).length > 0) {
+                setData(defaults);
+            }
+            setDefaultsInitialized(true);
+        }
+    }, [isNew, fields, entry, defaultsInitialized]);
     const [fieldErrors, setFieldErrors] = useState({});
     const [refPicker, setRefPicker] = useState({ open: false, fieldKey: null, targetFormId: null, displayFieldKey: null, multi: false });
     const [refSearch, setRefSearch] = useState('');
@@ -154,9 +170,11 @@ export function EntryEdit({ id, entryId, onNavigate }) {
             case 'number':
                 return (_jsx(Input, { label: f.label, value: v === '' ? '' : String(v), onChange: (val) => setData((p) => ({ ...p, [f.key]: val === '' ? '' : Number(val) })), required: Boolean(f.required), error: err }, f.key));
             case 'date':
-                return (_jsx(Input, { label: f.label, value: String(v), onChange: (val) => setData((p) => ({ ...p, [f.key]: val })) }, f.key));
+                return (_jsx(Input, { label: f.label, value: String(v), onChange: (val) => setData((p) => ({ ...p, [f.key]: val })), type: "date" }, f.key));
+            case 'datetime':
+                return (_jsx(Input, { label: f.label, value: String(v), onChange: (val) => setData((p) => ({ ...p, [f.key]: val })), type: "datetime-local" }, f.key));
             case 'checkbox':
-                return (_jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: Boolean(v), onChange: (e) => setData((p) => ({ ...p, [f.key]: e.target.checked })) }), f.label] }, f.key));
+                return (_jsxs("label", { className: "text-sm flex items-center gap-2 text-gray-900", children: [_jsx("input", { type: "checkbox", checked: Boolean(v), onChange: (e) => setData((p) => ({ ...p, [f.key]: e.target.checked })), className: "w-4 h-4" }), f.label] }, f.key));
             case 'select':
                 return (_jsx(Select, { label: f.label, value: String(v), onChange: (val) => setData((p) => ({ ...p, [f.key]: val })), options: [{ value: '', label: 'Select…' }, ...parseSelectOptions(f)] }, f.key));
             case 'reference': {
@@ -175,10 +193,10 @@ export function EntryEdit({ id, entryId, onNavigate }) {
                     next.splice(idx, 1);
                     setData((p) => ({ ...p, [f.key]: multi ? next : (next[0] || null) }));
                 };
-                return (_jsxs("div", { className: "space-y-2", children: [_jsx("div", { className: "text-sm font-medium text-gray-300", children: f.label }), !targetFormId ? (_jsx(Alert, { variant: "warning", title: "Reference field not configured", children: "Set a target form + display field key in the form builder." })) : (_jsxs(_Fragment, { children: [_jsx("div", { className: "flex flex-wrap gap-2", children: currentList.length === 0 ? (_jsx("div", { className: "text-sm text-gray-500", children: "No selection" })) : (currentList.map((r, idx) => (_jsxs("div", { className: "flex items-center gap-2 border border-gray-800 rounded px-3 py-1.5 bg-gray-900/50", children: [_jsx("a", { className: "text-sm hover:text-blue-500 transition-colors", href: `/forms/${r.formId || targetFormId}/entries/${r.entryId}`, onClick: (e) => {
+                return (_jsxs("div", { className: "space-y-2", children: [_jsx("div", { className: "text-sm font-medium text-gray-700", children: f.label }), !targetFormId ? (_jsx(Alert, { variant: "warning", title: "Reference field not configured", children: "Set a target form + display field key in the form builder." })) : (_jsxs(_Fragment, { children: [_jsx("div", { className: "flex flex-wrap gap-2", children: currentList.length === 0 ? (_jsx("div", { className: "text-sm text-gray-500", children: "No selection" })) : (currentList.map((r, idx) => (_jsxs("div", { className: "flex items-center gap-2 border border-gray-300 rounded-md px-3 py-1.5 bg-gray-100", children: [_jsx("a", { className: "text-sm text-gray-900 hover:text-blue-600 transition-colors", href: `/forms/${r.formId || targetFormId}/entries/${r.entryId}`, onClick: (e) => {
                                                     e.preventDefault();
                                                     navigate(`/forms/${r.formId || targetFormId}/entries/${r.entryId}`);
-                                                }, children: r.label || r.entryId }), _jsx("button", { className: "text-xs text-gray-500 hover:text-red-500 transition-colors", onClick: () => removeAt(idx), children: "Remove" })] }, `${r.entryId}-${idx}`)))) }), _jsx(Button, { variant: "secondary", size: "sm", onClick: () => setRefPicker({
+                                                }, children: r.label || r.entryId }), _jsx("button", { className: "text-xs text-gray-600 hover:text-red-600 transition-colors", onClick: () => removeAt(idx), children: "Remove" })] }, `${r.entryId}-${idx}`)))) }), _jsx(Button, { variant: "secondary", size: "sm", onClick: () => setRefPicker({
                                         open: true,
                                         fieldKey: f.key,
                                         targetFormId,
@@ -201,7 +219,7 @@ export function EntryEdit({ id, entryId, onNavigate }) {
                     next.splice(idx, 1);
                     setData((p) => ({ ...p, [f.key]: multi ? next : (next[0] || null) }));
                 };
-                return (_jsxs("div", { className: "space-y-2", children: [_jsx("div", { className: "text-sm font-medium text-gray-300", children: f.label }), _jsx("div", { className: "flex flex-wrap gap-2", children: currentEntList.length === 0 ? (_jsx("div", { className: "text-sm text-gray-500", children: "No selection" })) : (currentEntList.map((r, idx) => (_jsxs("div", { className: "flex items-center gap-2 border border-gray-800 rounded px-3 py-1.5 bg-gray-900/50", children: [_jsx("span", { className: "text-sm", children: r.label || r.entityId }), _jsx("button", { className: "text-xs text-gray-500 hover:text-red-500 transition-colors", onClick: () => removeEntAt(idx), children: "Remove" })] }, `${r.entityId}-${idx}`)))) }), _jsx(Button, { variant: "secondary", size: "sm", onClick: () => setEntityPicker({
+                return (_jsxs("div", { className: "space-y-2", children: [_jsx("div", { className: "text-sm font-medium text-gray-700", children: f.label }), _jsx("div", { className: "flex flex-wrap gap-2", children: currentEntList.length === 0 ? (_jsx("div", { className: "text-sm text-gray-500", children: "No selection" })) : (currentEntList.map((r, idx) => (_jsxs("div", { className: "flex items-center gap-2 border border-gray-300 rounded-md px-3 py-1.5 bg-gray-100", children: [_jsx("span", { className: "text-sm text-gray-900", children: r.label || r.entityId }), _jsx("button", { className: "text-xs text-gray-600 hover:text-red-600 transition-colors", onClick: () => removeEntAt(idx), children: "Remove" })] }, `${r.entityId}-${idx}`)))) }), _jsx(Button, { variant: "secondary", size: "sm", onClick: () => setEntityPicker({
                                 open: true,
                                 fieldKey: f.key,
                                 entityKind,
@@ -241,7 +259,7 @@ export function EntryEdit({ id, entryId, onNavigate }) {
         ...(!isNew && entryId ? [{ label: `Entry ${entryId.slice(0, 8)}`, href: `/forms/${formId}/entries/${entryId}` }] : []),
         { label: isNew ? 'New' : 'Edit' },
     ];
-    return (_jsxs(Page, { title: form?.name ? `${form.name} — ${isNew ? 'New' : 'Edit'} Entry` : isNew ? 'New Entry' : 'Edit Entry', breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsx("div", { className: "flex items-center gap-2", children: _jsxs(Button, { variant: "primary", onClick: handleSubmit, disabled: saving, children: [_jsx(Save, { size: 16, className: "mr-2" }), isNew ? 'Create' : 'Save'] }) }), children: [saveError && (_jsx(Alert, { variant: "error", title: "Error saving", children: saveError.message })), _jsx(Modal, { open: refPicker.open, onClose: () => setRefPicker((p) => ({ ...p, open: false })), title: "Select reference", size: "lg", children: _jsxs("div", { className: "flex flex-col gap-4", children: [_jsx(Input, { label: "Search", value: refSearch, onChange: setRefSearch, placeholder: "Search\u2026" }), refError && (_jsx(Alert, { variant: "error", title: "Error", children: refError })), _jsx("div", { className: "max-h-[400px] overflow-y-auto flex flex-col gap-2", children: refLoading ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "Loading\u2026" })) : refItems.length === 0 ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "No results" })) : (refItems.map((item) => {
+    return (_jsxs(Page, { title: form?.name ? `${isNew ? 'New' : 'Edit'} ${form.name}` : isNew ? 'New Entry' : 'Edit Entry', breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsx("div", { className: "flex items-center gap-2", children: _jsxs(Button, { variant: "primary", onClick: handleSubmit, disabled: saving, children: [_jsx(Save, { size: 16, className: "mr-2" }), isNew ? 'Create' : 'Save'] }) }), children: [saveError && (_jsx(Alert, { variant: "error", title: "Error saving", children: saveError.message })), _jsx(Modal, { open: refPicker.open, onClose: () => setRefPicker((p) => ({ ...p, open: false })), title: "Select reference", size: "lg", children: _jsxs("div", { className: "flex flex-col gap-4", children: [_jsx(Input, { label: "Search", value: refSearch, onChange: setRefSearch, placeholder: "Search\u2026" }), refError && (_jsx(Alert, { variant: "error", title: "Error", children: refError })), _jsx("div", { className: "max-h-[400px] overflow-y-auto flex flex-col gap-2", children: refLoading ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "Loading\u2026" })) : refItems.length === 0 ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "No results" })) : (refItems.map((item) => {
                                 const label = refPicker.displayFieldKey && item.data
                                     ? item.data[refPicker.displayFieldKey]
                                     : null;
@@ -264,7 +282,7 @@ export function EntryEdit({ id, entryId, onNavigate }) {
                                             return { ...prev, [refPicker.fieldKey]: refObj };
                                         });
                                         setRefPicker((p) => ({ ...p, open: false }));
-                                    }, className: "w-full text-left px-3 py-2 border border-gray-800 rounded hover:border-blue-600 hover:bg-gray-900 transition-colors", children: [_jsx("div", { className: "text-sm font-medium mb-1", children: display }), _jsx("div", { className: "text-xs text-gray-500", children: item.id })] }, item.id));
+                                    }, className: "w-full text-left px-3 py-2 border border-gray-300 rounded hover:border-blue-600 hover:bg-blue-50 transition-colors", children: [_jsx("div", { className: "text-sm font-medium mb-1 text-gray-900", children: display }), _jsx("div", { className: "text-xs text-gray-500", children: item.id })] }, item.id));
                             })) })] }) }), _jsx(Modal, { open: entityPicker.open, onClose: () => setEntityPicker((p) => ({ ...p, open: false })), title: `Select ${entityPicker.entityKind}`, size: "lg", children: _jsxs("div", { className: "flex flex-col gap-4", children: [_jsx(Input, { label: "Search", value: entitySearch, onChange: setEntitySearch, placeholder: "Search\u2026" }), entityError && (_jsx(Alert, { variant: "error", title: "Error", children: entityError })), _jsx("div", { className: "max-h-[400px] overflow-y-auto flex flex-col gap-2", children: entityLoading ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "Loading\u2026" })) : entityItems.length === 0 ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "No results" })) : (entityItems.map((item) => {
                                 const currentValue = data[entityPicker.fieldKey];
                                 const isSelected = entityPicker.multi
@@ -293,8 +311,8 @@ export function EntryEdit({ id, entryId, onNavigate }) {
                                             setEntityPicker((p) => ({ ...p, open: false }));
                                         }
                                     }, className: `w-full text-left px-3 py-2 border rounded transition-colors ${isSelected
-                                        ? 'border-blue-600 bg-blue-950/30 text-white'
-                                        : 'border-gray-800 hover:border-blue-600 hover:bg-gray-900'}`, children: [_jsx("div", { className: "text-sm font-medium mb-1", children: item.label }), _jsx("div", { className: "text-xs text-gray-500", children: item.id })] }, item.id));
+                                        ? 'border-blue-600 bg-blue-100 text-blue-900'
+                                        : 'border-gray-300 hover:border-blue-600 hover:bg-blue-50 text-gray-900'}`, children: [_jsx("div", { className: "text-sm font-medium mb-1", children: item.label }), _jsx("div", { className: `text-xs ${isSelected ? 'text-blue-700' : 'text-gray-500'}`, children: item.id })] }, item.id));
                             })) })] }) }), _jsx(Card, { children: _jsx("div", { className: "space-y-6", children: !version ? (_jsx(Alert, { variant: "warning", title: "Form not configured", children: "This form has no draft version. Please create a draft version in the form builder." })) : fields.length === 0 ? (_jsx(Alert, { variant: "warning", title: "No fields", children: "This form has no fields yet. Add fields in the form builder." })) : (fields.map(renderField)) }) })] }));
 }
 export default EntryEdit;

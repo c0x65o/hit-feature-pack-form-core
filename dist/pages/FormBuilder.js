@@ -249,11 +249,76 @@ export function FormBuilder({ id, onNavigate }) {
                                                     { value: 'textarea', label: 'Textarea' },
                                                     { value: 'number', label: 'Number' },
                                                     { value: 'date', label: 'Date' },
+                                                    { value: 'datetime', label: 'DateTime' },
                                                     { value: 'select', label: 'Select' },
                                                     { value: 'checkbox', label: 'Checkbox' },
                                                     { value: 'reference', label: 'Reference' },
                                                     { value: 'entity_reference', label: 'Entity Reference' },
-                                                ] })] }), _jsxs("div", { className: "flex items-center gap-3", children: [_jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: Boolean(f.required), onChange: (e) => {
+                                                ] })] }), (() => {
+                                        const renderDefaultValue = () => {
+                                            const currentDefault = f.defaultValue;
+                                            switch (f.type) {
+                                                case 'text':
+                                                case 'url':
+                                                case 'textarea':
+                                                    return (_jsx(Input, { label: "Default value (optional)", value: currentDefault != null ? String(currentDefault) : '', onChange: (v) => {
+                                                            const next = [...fields];
+                                                            next[idx] = { ...next[idx], defaultValue: v || null };
+                                                            setFields(next);
+                                                        }, placeholder: "Enter default value" }));
+                                                case 'number':
+                                                    return (_jsx(Input, { label: "Default value (optional)", value: currentDefault != null ? String(currentDefault) : '', onChange: (v) => {
+                                                            const next = [...fields];
+                                                            next[idx] = { ...next[idx], defaultValue: v ? Number(v) : null };
+                                                            setFields(next);
+                                                        }, placeholder: "Enter default number" }));
+                                                case 'date':
+                                                    return (_jsx(Input, { label: "Default value (optional)", value: currentDefault != null ? String(currentDefault) : '', onChange: (v) => {
+                                                            const next = [...fields];
+                                                            next[idx] = { ...next[idx], defaultValue: v || null };
+                                                            setFields(next);
+                                                        }, placeholder: "YYYY-MM-DD" }));
+                                                case 'datetime':
+                                                    return (_jsx(Input, { label: "Default value (optional)", value: currentDefault != null ? String(currentDefault) : '', onChange: (v) => {
+                                                            const next = [...fields];
+                                                            next[idx] = { ...next[idx], defaultValue: v || null };
+                                                            setFields(next);
+                                                        }, placeholder: "YYYY-MM-DDTHH:mm" }));
+                                                case 'select': {
+                                                    const optionsText = String(f.config?.optionsText || '');
+                                                    const options = optionsText
+                                                        .split('\n')
+                                                        .map((line) => line.trim())
+                                                        .filter(Boolean)
+                                                        .map((line) => {
+                                                        const [value] = line.split('|');
+                                                        return { value: (value || '').trim(), label: line.trim() };
+                                                    })
+                                                        .filter((o) => o.value);
+                                                    return (_jsx(Select, { label: "Default value (optional)", value: currentDefault != null ? String(currentDefault) : '', onChange: (v) => {
+                                                            const next = [...fields];
+                                                            next[idx] = { ...next[idx], defaultValue: v || null };
+                                                            setFields(next);
+                                                        }, options: [
+                                                            { value: '', label: '— No default —' },
+                                                            ...options,
+                                                        ] }));
+                                                }
+                                                case 'checkbox':
+                                                    return (_jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: Boolean(currentDefault), onChange: (e) => {
+                                                                    const next = [...fields];
+                                                                    next[idx] = { ...next[idx], defaultValue: e.target.checked };
+                                                                    setFields(next);
+                                                                } }), "Default checked"] }));
+                                                case 'reference':
+                                                case 'entity_reference':
+                                                    return (_jsx("div", { className: "text-sm text-gray-500", children: "Default values for references are not supported." }));
+                                                default:
+                                                    return null;
+                                            }
+                                        };
+                                        return (_jsx("div", { className: "border-t border-gray-700 pt-3", children: renderDefaultValue() }));
+                                    })(), _jsxs("div", { className: "flex items-center gap-3", children: [_jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: Boolean(f.required), onChange: (e) => {
                                                             const next = [...fields];
                                                             next[idx] = { ...next[idx], required: e.target.checked };
                                                             setFields(next);

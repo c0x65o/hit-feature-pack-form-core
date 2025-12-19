@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { ArrowLeft, Edit, ClipboardList, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, ClipboardList, FileText } from 'lucide-react';
 import { useUi, type BreadcrumbItem } from '@hit/ui-kit';
-import { useEntry, useForm } from '../hooks/useForms';
+import { useEntry, useForm, useEntryMutations } from '../hooks/useForms';
 
 interface Props {
   id?: string; // formId
@@ -17,6 +17,7 @@ export function EntryDetail({ id, entryId, onNavigate }: Props) {
 
   const { form, version } = useForm(formId);
   const { entry, loading, error } = useEntry(formId, entryId);
+  const { deleteEntry, loading: deleting } = useEntryMutations(formId);
 
   const navigate = (path: string) => {
     if (onNavigate) onNavigate(path);
@@ -73,6 +74,22 @@ export function EntryDetail({ id, entryId, onNavigate }: Props) {
             <Edit size={16} className="mr-2" />
             Edit
           </Button>
+          <Button
+            variant="danger"
+            onClick={async () => {
+              if (!confirm('Are you sure you want to delete this entry? This action cannot be undone.')) return;
+              try {
+                await deleteEntry(entry.id);
+                navigate(`/forms/${formId}/entries`);
+              } catch (err) {
+                // Error handling is done by the hook
+              }
+            }}
+            disabled={deleting}
+          >
+            <Trash2 size={16} className="mr-2" />
+            {deleting ? 'Deleting...' : 'Delete'}
+          </Button>
         </div>
       }
     >
@@ -83,6 +100,8 @@ export function EntryDetail({ id, entryId, onNavigate }: Props) {
             const isRef = f.type === 'reference';
             const isEntityRef = f.type === 'entity_reference';
             const isUrl = f.type === 'url';
+            const isDate = f.type === 'date';
+            const isDateTime = f.type === 'datetime';
             return (
               <div key={f.key}>
                 <div className="text-sm text-gray-500">{f.label}</div>
@@ -93,6 +112,20 @@ export function EntryDetail({ id, entryId, onNavigate }: Props) {
                     <a className="text-sm hover:text-blue-500 underline" href={String(v)} target="_blank" rel="noreferrer">
                       {String(v)}
                     </a>
+                  ) : isDate || isDateTime ? (
+                    (() => {
+                      try {
+                        const date = new Date(String(v));
+                        if (!isNaN(date.getTime())) {
+                          return isDateTime 
+                            ? date.toLocaleString()
+                            : date.toLocaleDateString();
+                        }
+                      } catch {
+                        // Fall through to string display
+                      }
+                      return String(v);
+                    })()
                   ) : isRef ? (
                     Array.isArray(v) ? (
                       <div className="flex flex-wrap gap-2">

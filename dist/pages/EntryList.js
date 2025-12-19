@@ -1,7 +1,7 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Eye, Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useUi } from '@hit/ui-kit';
 import { useEntries, useForm, useEntryMutations } from '../hooks/useForms';
 export function EntryList({ id, onNavigate }) {
@@ -36,6 +36,19 @@ export function EntryList({ id, onNavigate }) {
                         return '';
                     return (_jsx("a", { className: "text-sm hover:text-blue-500 underline", href: s, target: "_blank", rel: "noreferrer", children: s }));
                 }
+                if (f.type === 'datetime' || f.type === 'date') {
+                    try {
+                        const date = new Date(String(v));
+                        if (!isNaN(date.getTime())) {
+                            return f.type === 'datetime'
+                                ? date.toLocaleString()
+                                : date.toLocaleDateString();
+                        }
+                    }
+                    catch {
+                        // Fall through to string display
+                    }
+                }
                 // Friendly display for reference fields
                 if (Array.isArray(v)) {
                     return v
@@ -63,7 +76,11 @@ export function EntryList({ id, onNavigate }) {
                 align: 'right',
                 sortable: false,
                 hideable: false,
-                render: (_, row) => (_jsxs("div", { className: "flex items-center justify-end gap-2", children: [_jsx(Button, { variant: "ghost", size: "sm", onClick: () => navigate(`/forms/${formId}/entries/${row.id}`), children: _jsx(Eye, { size: 16 }) }), _jsx(Button, { variant: "ghost", size: "sm", onClick: () => navigate(`/forms/${formId}/entries/${row.id}/edit`), children: _jsx(Edit, { size: 16 }) }), _jsx(Button, { variant: "ghost", size: "sm", disabled: mutating, onClick: async () => {
+                render: (_, row) => (_jsxs("div", { className: "flex items-center justify-end gap-2", onClick: (e) => e.stopPropagation(), children: [_jsx(Button, { variant: "ghost", size: "sm", onClick: (e) => {
+                                e.stopPropagation();
+                                navigate(`/forms/${formId}/entries/${row.id}/edit`);
+                            }, children: _jsx(Edit, { size: 16 }) }), _jsx(Button, { variant: "ghost", size: "sm", disabled: mutating, onClick: async (e) => {
+                                e.stopPropagation();
                                 if (!confirm('Delete this entry?'))
                                     return;
                                 await deleteEntry(row.id);
@@ -79,7 +96,7 @@ export function EntryList({ id, onNavigate }) {
             updatedAt: e.updatedAt,
         }));
     }, [data]);
-    return (_jsxs(Page, { title: form?.name ? `${form.name} — Entries` : 'Entries', description: form?.scope === 'private' ? 'Private entries (owner-only)' : 'Project entries', actions: _jsxs("div", { className: "flex items-center gap-2", children: [_jsxs(Button, { variant: "secondary", onClick: () => navigate(`/forms/${formId}`), children: [_jsx(ArrowLeft, { size: 16, className: "mr-2" }), "Back"] }), _jsxs(Button, { variant: "primary", onClick: () => navigate(`/forms/${formId}/entries/new`), children: [_jsx(Plus, { size: 16, className: "mr-2" }), "New Entry"] })] }), children: [error && (_jsx(Alert, { variant: "error", title: "Error loading entries", children: error.message })), _jsx(Card, { children: _jsx(DataTable, { columns: columns, data: rows, emptyMessage: "No entries yet", loading: loading, searchable: true, pageSize: 25 }) })] }));
+    return (_jsxs(Page, { title: form?.name || '', description: form?.scope === 'private' ? 'Private entries (owner-only)' : 'Project entries', actions: _jsx("div", { className: "flex items-center gap-2", children: _jsxs(Button, { variant: "primary", onClick: () => navigate(`/forms/${formId}/entries/new`), children: [_jsx(Plus, { size: 16, className: "mr-2" }), "New Entry"] }) }), children: [error && (_jsx(Alert, { variant: "error", title: "Error loading entries", children: error.message })), _jsx(Card, { children: _jsx(DataTable, { columns: columns, data: rows, emptyMessage: "No entries yet", loading: loading, searchable: true, pageSize: 25, onRowClick: (row) => navigate(`/forms/${formId}/entries/${row.id}`) }) })] }));
 }
 export default EntryList;
 //# sourceMappingURL=EntryList.js.map
