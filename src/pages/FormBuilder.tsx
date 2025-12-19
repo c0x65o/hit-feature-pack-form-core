@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Plus, Save, UploadCloud, ClipboardList, FileText, Share2, Eye, Star, Trash2, Edit2 } from 'lucide-react';
+import { ArrowLeft, Plus, Save, ClipboardList, FileText, Share2, Eye, Star, Trash2, Edit2 } from 'lucide-react';
 import { useUi, useTableView, type BreadcrumbItem, type TableView, type TableViewFilter } from '@hit/ui-kit';
 import {
   FieldType,
@@ -29,7 +29,7 @@ export function FormBuilder({ id, onNavigate }: Props) {
   const isNew = !id || id === 'new';
 
   const { form, version, loading: loadingForm, error: loadError, refresh } = useForm(isNew ? undefined : id);
-  const { createForm, publishForm, unpublishForm, saveForm, loading: saving, error: saveError } = useFormMutations();
+  const { createForm, saveForm, loading: saving, error: saveError } = useFormMutations();
   const { data: allForms } = useForms({ page: 1, pageSize: 200 });
   
   // Table views for entries list
@@ -212,28 +212,6 @@ export function FormBuilder({ id, onNavigate }: Props) {
     }
   };
 
-  const handlePublish = async () => {
-    if (!id) return;
-    if (!confirm('Publish this form? Changes will become visible to users.')) return;
-    try {
-      await publishForm(id);
-      await refresh();
-    } catch (e: any) {
-      setLocalError(e?.message || 'Failed to publish');
-    }
-  };
-
-  const handleUnpublish = async () => {
-    if (!id) return;
-    if (!confirm('Unpublish this form? It will be removed from navigation for other users.')) return;
-    try {
-      await unpublishForm(id);
-      await refresh();
-    } catch (e: any) {
-      setLocalError(e?.message || 'Failed to unpublish');
-    }
-  };
-
   if (!isNew && loadingForm) {
     return (
       <Page title="Loading...">
@@ -270,8 +248,8 @@ export function FormBuilder({ id, onNavigate }: Props) {
 
   return (
     <Page
-      title={isNew ? 'New Form' : `Edit Form`}
-      description={isNew ? 'Create a new runtime form' : form?.isPublished ? 'Published form' : 'Draft form'}
+      title={isNew ? 'New Form' : 'Edit Form'}
+      description={isNew ? 'Create a new runtime form' : `Form definition`}
       breadcrumbs={breadcrumbs}
       onNavigate={navigate}
       actions={
@@ -286,18 +264,6 @@ export function FormBuilder({ id, onNavigate }: Props) {
               <Share2 size={16} className="mr-2" />
               Share
             </Button>
-          )}
-          {!isNew && (
-            form?.isPublished ? (
-              <Button variant="secondary" onClick={handleUnpublish} disabled={saving}>
-                Unpublish
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={handlePublish} disabled={saving}>
-                <UploadCloud size={16} className="mr-2" />
-                Publish
-              </Button>
-            )
           )}
           <Button variant="primary" onClick={() => handleSave()} disabled={saving}>
             <Save size={16} className="mr-2" />
@@ -351,7 +317,7 @@ export function FormBuilder({ id, onNavigate }: Props) {
               checked={navShow}
               onChange={(e) => setNavShow(e.target.checked)}
             />
-            Show in navigation when published
+            Show in navigation (for users with access)
           </label>
           <Select
             label="Placement"
@@ -873,7 +839,7 @@ export function FormBuilder({ id, onNavigate }: Props) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-gray-900 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">
-              {editingView ? 'Edit View' : 'Create New View'}
+              {editingView ? 'Edit View' : 'Create View'}
             </h2>
             
             <div className="space-y-4">

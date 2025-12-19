@@ -26,8 +26,12 @@ async function fetchApi(path, options) {
     }
     return res.json();
 }
+/**
+ * List forms
+ * @param adminMode - If true, lists ALL forms (requires admin role). Otherwise lists only forms user has READ ACL for.
+ */
 export function useForms(options = {}) {
-    const { page = 1, pageSize = 25, search = '' } = options;
+    const { page = 1, pageSize = 25, search = '', adminMode = false } = options;
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -40,6 +44,8 @@ export function useForms(options = {}) {
             });
             if (search)
                 params.set('search', search);
+            if (adminMode)
+                params.set('admin', 'true');
             const result = await fetchApi(`?${params.toString()}`);
             setData(result);
             setError(null);
@@ -50,7 +56,7 @@ export function useForms(options = {}) {
         finally {
             setLoading(false);
         }
-    }, [page, pageSize, search]);
+    }, [page, pageSize, search, adminMode]);
     useEffect(() => {
         refresh();
     }, [refresh]);
@@ -136,20 +142,6 @@ export function useFormMutations() {
             setLoading(false);
         }
     };
-    const publishForm = async (id) => {
-        setLoading(true);
-        setError(null);
-        try {
-            return await fetchApi(`/${id}/publish`, { method: 'POST' });
-        }
-        catch (e) {
-            setError(e);
-            throw e;
-        }
-        finally {
-            setLoading(false);
-        }
-    };
     const saveDraftFields = async (id, payload) => {
         setLoading(true);
         setError(null);
@@ -171,21 +163,6 @@ export function useFormMutations() {
         createForm,
         updateForm,
         deleteForm,
-        publishForm,
-        unpublishForm: async (id) => {
-            setLoading(true);
-            setError(null);
-            try {
-                return await fetchApi(`/${id}/unpublish`, { method: 'POST' });
-            }
-            catch (e) {
-                setError(e);
-                throw e;
-            }
-            finally {
-                setLoading(false);
-            }
-        },
         saveForm: async (id, payload) => {
             setLoading(true);
             setError(null);

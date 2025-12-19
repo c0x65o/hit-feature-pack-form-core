@@ -1,7 +1,7 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Plus, Save, UploadCloud, ClipboardList, FileText, Share2, Eye, Star, Trash2, Edit2 } from 'lucide-react';
+import { ArrowLeft, Plus, Save, ClipboardList, FileText, Share2, Eye, Star, Trash2, Edit2 } from 'lucide-react';
 import { useUi, useTableView } from '@hit/ui-kit';
 import { useForms, useForm, useFormMutations, } from '../hooks/useForms';
 import { FormAclModal } from '../components/FormAclModal';
@@ -16,7 +16,7 @@ export function FormBuilder({ id, onNavigate }) {
     const { Page, Card, Button, Input, TextArea, Select, Alert } = useUi();
     const isNew = !id || id === 'new';
     const { form, version, loading: loadingForm, error: loadError, refresh } = useForm(isNew ? undefined : id);
-    const { createForm, publishForm, unpublishForm, saveForm, loading: saving, error: saveError } = useFormMutations();
+    const { createForm, saveForm, loading: saving, error: saveError } = useFormMutations();
     const { data: allForms } = useForms({ page: 1, pageSize: 200 });
     // Table views for entries list
     const tableId = id && !isNew ? `form.${id}` : '';
@@ -184,32 +184,6 @@ export function FormBuilder({ id, onNavigate }) {
             setLocalError(e?.message || 'Failed to save form');
         }
     };
-    const handlePublish = async () => {
-        if (!id)
-            return;
-        if (!confirm('Publish this form? Changes will become visible to users.'))
-            return;
-        try {
-            await publishForm(id);
-            await refresh();
-        }
-        catch (e) {
-            setLocalError(e?.message || 'Failed to publish');
-        }
-    };
-    const handleUnpublish = async () => {
-        if (!id)
-            return;
-        if (!confirm('Unpublish this form? It will be removed from navigation for other users.'))
-            return;
-        try {
-            await unpublishForm(id);
-            await refresh();
-        }
-        catch (e) {
-            setLocalError(e?.message || 'Failed to unpublish');
-        }
-    };
     if (!isNew && loadingForm) {
         return (_jsx(Page, { title: "Loading...", children: _jsx(Card, { children: _jsx("div", { className: "py-10", children: "Loading\u2026" }) }) }));
     }
@@ -221,7 +195,7 @@ export function FormBuilder({ id, onNavigate }) {
         ...(!isNew && form ? [{ label: form.name, icon: _jsx(FileText, { size: 14 }) }] : []),
         { label: isNew ? 'New' : 'Edit' },
     ];
-    return (_jsxs(Page, { title: isNew ? 'New Form' : `Edit Form`, description: isNew ? 'Create a new runtime form' : form?.isPublished ? 'Published form' : 'Draft form', breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsxs("div", { className: "flex items-center gap-2", children: [!isNew && (_jsx(Button, { variant: "secondary", onClick: () => navigate(`/forms/${id}/entries`), children: "View Entries" })), !isNew && (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { size: 16, className: "mr-2" }), "Share"] })), !isNew && (form?.isPublished ? (_jsx(Button, { variant: "secondary", onClick: handleUnpublish, disabled: saving, children: "Unpublish" })) : (_jsxs(Button, { variant: "secondary", onClick: handlePublish, disabled: saving, children: [_jsx(UploadCloud, { size: 16, className: "mr-2" }), "Publish"] }))), _jsxs(Button, { variant: "primary", onClick: () => handleSave(), disabled: saving, children: [_jsx(Save, { size: 16, className: "mr-2" }), "Save"] })] }), children: [(saveError || localError) && (_jsx(Alert, { variant: "error", title: "Error saving", children: localError || saveError?.message })), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx(Input, { label: "Name", value: name, onChange: setName, placeholder: "e.g. Customer Intake", required: true }), _jsx(Input, { label: "Slug", value: slug, onChange: setSlug, placeholder: "e.g. customer-intake" }), _jsx(TextArea, { label: "Description", value: description, onChange: setDescription, rows: 3 })] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-4", children: [_jsx("div", { className: "text-lg font-semibold", children: "Sharing & Access" }), _jsx("p", { className: "text-sm text-gray-500", children: "Only you can access this form unless you add others below. Admins can always access all forms." }), isNew ? (_jsx("p", { className: "text-sm text-amber-600", children: "Save the form first to configure access permissions." })) : (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { className: "w-4 h-4 mr-2" }), "Manage Access"] }))] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx("div", { className: "text-lg font-semibold", children: "Navigation" }), _jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: navShow, onChange: (e) => setNavShow(e.target.checked) }), "Show in navigation when published"] }), _jsx(Select, { label: "Placement", value: navPlacement, onChange: (v) => {
+    return (_jsxs(Page, { title: isNew ? 'New Form' : 'Edit Form', description: isNew ? 'Create a new runtime form' : `Form definition`, breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsxs("div", { className: "flex items-center gap-2", children: [!isNew && (_jsx(Button, { variant: "secondary", onClick: () => navigate(`/forms/${id}/entries`), children: "View Entries" })), !isNew && (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { size: 16, className: "mr-2" }), "Share"] })), _jsxs(Button, { variant: "primary", onClick: () => handleSave(), disabled: saving, children: [_jsx(Save, { size: 16, className: "mr-2" }), "Save"] })] }), children: [(saveError || localError) && (_jsx(Alert, { variant: "error", title: "Error saving", children: localError || saveError?.message })), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx(Input, { label: "Name", value: name, onChange: setName, placeholder: "e.g. Customer Intake", required: true }), _jsx(Input, { label: "Slug", value: slug, onChange: setSlug, placeholder: "e.g. customer-intake" }), _jsx(TextArea, { label: "Description", value: description, onChange: setDescription, rows: 3 })] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-4", children: [_jsx("div", { className: "text-lg font-semibold", children: "Sharing & Access" }), _jsx("p", { className: "text-sm text-gray-500", children: "Only you can access this form unless you add others below. Admins can always access all forms." }), isNew ? (_jsx("p", { className: "text-sm text-amber-600", children: "Save the form first to configure access permissions." })) : (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { className: "w-4 h-4 mr-2" }), "Manage Access"] }))] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx("div", { className: "text-lg font-semibold", children: "Navigation" }), _jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: navShow, onChange: (e) => setNavShow(e.target.checked) }), "Show in navigation (for users with access)"] }), _jsx(Select, { label: "Placement", value: navPlacement, onChange: (v) => {
                                 setNavPlacement(v);
                                 if (v !== 'custom')
                                     setNavParentPath('');
@@ -441,7 +415,7 @@ export function FormBuilder({ id, onNavigate }) {
                                                     catch (err) {
                                                         alert(err?.message || 'Failed to delete view');
                                                     }
-                                                }, children: _jsx(Trash2, { size: 14, className: "text-red-500" }) })] }))] }, view.id)))] })] })), showViewBuilder && (_jsx("div", { className: "fixed inset-0 bg-black/50 flex items-center justify-center z-50", children: _jsxs("div", { className: "bg-gray-900 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto", children: [_jsx("h2", { className: "text-xl font-semibold mb-4", children: editingView ? 'Edit View' : 'Create New View' }), _jsxs("div", { className: "space-y-4", children: [_jsx(Input, { label: "View Name", value: viewBuilderName, onChange: setViewBuilderName, placeholder: "e.g., Active Items, Recent Entries" }), _jsx(TextArea, { label: "Description (optional)", value: viewBuilderDescription, onChange: setViewBuilderDescription, placeholder: "Describe what this view shows" }), _jsxs("div", { children: [_jsxs("div", { className: "flex items-center justify-between mb-2", children: [_jsx("label", { className: "text-sm font-medium", children: "Filters" }), _jsxs(Button, { variant: "secondary", size: "sm", onClick: () => {
+                                                }, children: _jsx(Trash2, { size: 14, className: "text-red-500" }) })] }))] }, view.id)))] })] })), showViewBuilder && (_jsx("div", { className: "fixed inset-0 bg-black/50 flex items-center justify-center z-50", children: _jsxs("div", { className: "bg-gray-900 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto", children: [_jsx("h2", { className: "text-xl font-semibold mb-4", children: editingView ? 'Edit View' : 'Create View' }), _jsxs("div", { className: "space-y-4", children: [_jsx(Input, { label: "View Name", value: viewBuilderName, onChange: setViewBuilderName, placeholder: "e.g., Active Items, Recent Entries" }), _jsx(TextArea, { label: "Description (optional)", value: viewBuilderDescription, onChange: setViewBuilderDescription, placeholder: "Describe what this view shows" }), _jsxs("div", { children: [_jsxs("div", { className: "flex items-center justify-between mb-2", children: [_jsx("label", { className: "text-sm font-medium", children: "Filters" }), _jsxs(Button, { variant: "secondary", size: "sm", onClick: () => {
                                                         const firstField = fields[0];
                                                         setViewBuilderFilters([
                                                             ...viewBuilderFilters,

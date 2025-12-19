@@ -10,7 +10,10 @@ export const runtime = 'nodejs';
 
 /**
  * GET /api/forms
- * List forms with pagination, sorting, and search
+ * 
+ * Two modes:
+ * - admin=true: List ALL forms (requires admin role) - for form definition management
+ * - default: List forms user has READ ACL for - for nav and entry access
  */
 export async function GET(request: NextRequest) {
   try {
@@ -29,36 +32,102 @@ export async function GET(request: NextRequest) {
     // Search
     const search = searchParams.get('search') || '';
 
+    // Admin mode - list all forms for management
+    const adminMode = searchParams.get('admin') === 'true';
+
     const user = extractUserFromRequest(request);
     if (!user?.sub) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const userId = user.sub;
     const roles = user.roles || [];
+    const isAdmin = roles.includes('admin') || roles.includes('Admin');
 
-    // Get forms where user has ACL access (for published forms)
+    // Admin mode: return all forms (for form definition management)
+    if (adminMode) {
+      if (!isAdmin) {
+        return NextResponse.json({ error: 'Admin required' }, { status: 403 });
+      }
+
+      const conditions = [];
+      if (search) {
+        conditions.push(
+          or(
+            like(forms.name, `%${search}%`),
+            like(forms.slug, `%${search}%`)
+          )!
+        );
+      }
+
+      const sortColumns: Record<string, AnyColumn> = {
+        name: forms.name,
+        slug: forms.slug,
+        createdAt: forms.createdAt,
+        updatedAt: forms.updatedAt,
+      };
+      const orderCol = sortColumns[sortBy] ?? forms.createdAt;
+      const orderDirection = sortOrder === 'asc' ? asc(orderCol) : desc(orderCol);
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const [countResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(forms)
+        .where(whereClause);
+      const total = Number(countResult?.count || 0);
+
+      const items = await db
+        .select()
+        .from(forms)
+        .where(whereClause)
+        .orderBy(orderDirection)
+        .limit(pageSize)
+        .offset(offset);
+
+      return NextResponse.json({
+        items,
+        pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      });
+    }
+
+    // User mode: forms they have READ ACL for OR published forms with ACL disabled
     const principalIds: string[] = [userId, ...roles].filter((id): id is string => Boolean(id));
+    
+    // Get form IDs user has READ access to via ACL
     const aclFormIds: string[] = [];
     if (principalIds.length > 0) {
       const aclEntries = await db
-        .select({ formId: formsAcls.formId })
+        .select({ formId: formsAcls.formId, permissions: formsAcls.permissions })
         .from(formsAcls)
         .where(
           or(...principalIds.map((id: string) => eq(formsAcls.principalId, id)))!
         );
-      const formIds = aclEntries.map((e: { formId: string }) => e.formId);
-      aclFormIds.push(...Array.from(new Set<string>(formIds)));
+      
+      // Filter to only forms with READ permission
+      for (const entry of aclEntries) {
+        const perms = entry.permissions || [];
+        if (perms.includes('READ')) {
+          aclFormIds.push(entry.formId);
+        }
+      }
     }
 
-    // Build conditions - user can see their own forms + published forms with ACL access
-    const conditions = [
-      or(
-        eq(forms.ownerUserId, userId),
-        and(
-          eq(forms.isPublished, true),
-          aclFormIds.length > 0 ? inArray(forms.id, aclFormIds) : sql`false`
-        )
+    // Build conditions - forms with ACL access OR published forms with ACL disabled
+    const accessConditions = [];
+    
+    if (aclFormIds.length > 0) {
+      accessConditions.push(inArray(forms.id, Array.from(new Set(aclFormIds))));
+    }
+    
+    accessConditions.push(
+      and(
+        eq(forms.isPublished, true),
+        eq(forms.aclEnabled, false)
       )!
+    );
+    
+    const conditions = [
+      accessConditions.length > 1 ? or(...accessConditions)! : accessConditions[0]
     ];
 
     if (search) {
@@ -100,12 +169,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       items,
-      pagination: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-      },
+      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     });
   } catch (error) {
     console.error('[forms] List error:', error);
@@ -115,7 +179,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/forms
- * Create a new form with initial draft version
+ * Create a new form - requires admin role
  */
 export async function POST(request: NextRequest) {
   try {
@@ -126,9 +190,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    const userId = getUserId(request);
-    if (!userId) {
+    const user = extractUserFromRequest(request);
+    if (!user?.sub) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const roles = user.roles || [];
+    const isAdmin = roles.includes('admin') || roles.includes('Admin');
+    
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Admin required to create forms' }, { status: 403 });
     }
 
     const formId = crypto.randomUUID();
@@ -144,7 +215,7 @@ export async function POST(request: NextRequest) {
       name: body.name,
       slug: slug,
       description: body.description || null,
-      ownerUserId: userId,
+      ownerUserId: user.sub,
       // Navigation config
       navShow: body.navShow ?? true,
       navPlacement: body.navPlacement || 'under_forms',
@@ -161,7 +232,7 @@ export async function POST(request: NextRequest) {
       formId: formId,
       version: 1,
       status: 'draft',
-      createdByUserId: userId,
+      createdByUserId: user.sub,
     });
 
     const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);

@@ -29,14 +29,10 @@ routes:
     roles: []
 
 # Navigation contributions
-nav:
-  - id: forms
-    label: Forms
-    path: /forms
-    icon: ClipboardList
-    group: main
-    showWhen: authenticated
-    weight: 160
+# Note: Navigation is handled via runtime injection in runtime-forms-nav.ts
+# which creates the "Custom Forms" parent with published forms as children.
+# No static nav contribution needed here.
+nav: []
 
 # Schema contributions (Drizzle tables)
 schema:
@@ -55,14 +51,6 @@ api:
       methods: [GET, PUT, DELETE]
       handler: "@hit/feature-pack-forms/server/api/forms-id"
       description: "Get, update, or delete a form"
-    - path: /api/forms/[id]/publish
-      methods: [POST]
-      handler: "@hit/feature-pack-forms/server/api/publish"
-      description: "Publish a form version"
-    - path: /api/forms/[id]/unpublish
-      methods: [POST]
-      handler: "@hit/feature-pack-forms/server/api/unpublish"
-      description: "Unpublish a form"
     - path: /api/forms/[id]/entries
       methods: [GET, POST]
       handler: "@hit/feature-pack-forms/server/api/entries"
@@ -87,14 +75,9 @@ dependencies:
   feature_packs:
     - name: dashboard-shell
 
-# Configurable options (currently kept minimal; scope is stored per-form at runtime)
+# Configurable options
 config:
   schema:
-    default_scope:
-      type: string
-      default: private
-      enum: [private, project]
-      description: "Default scope for newly created forms. private: owner-only, project: all authenticated users."
     enable_history:
       type: boolean
       default: true

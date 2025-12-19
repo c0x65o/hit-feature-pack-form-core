@@ -56,10 +56,15 @@ export interface PaginatedResponse<T> {
         totalPages: number;
     };
 }
+/**
+ * List forms
+ * @param adminMode - If true, lists ALL forms (requires admin role). Otherwise lists only forms user has READ ACL for.
+ */
 export declare function useForms(options?: {
     page?: number;
     pageSize?: number;
     search?: string;
+    adminMode?: boolean;
 }): {
     data: PaginatedResponse<FormRecord> | null;
     loading: boolean;
@@ -91,12 +96,6 @@ export declare function useFormMutations(): {
         description: string;
     }>) => Promise<FormRecord>;
     deleteForm: (id: string) => Promise<void>;
-    publishForm: (id: string) => Promise<{
-        success: boolean;
-    }>;
-    unpublishForm: (id: string) => Promise<{
-        success: boolean;
-    }>;
     saveForm: (id: string, payload: Partial<{
         name: string;
         description: string;
@@ -106,6 +105,7 @@ export declare function useFormMutations(): {
         navWeight: number;
         navLabel: string;
         navIcon: string;
+        navParentPath: string;
         draft: {
             fields: Array<Partial<FormFieldRecord>>;
             listConfig?: any;

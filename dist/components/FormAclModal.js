@@ -120,9 +120,9 @@ export function FormAclModal({ formId, isOpen, onClose, onUpdate }) {
             {
                 key: 'full',
                 label: 'Full Control',
-                description: 'Read, write, delete entries, and manage access',
+                description: 'Read, write, and delete entries',
                 priority: 100,
-                includes: [FORM_PERMISSIONS.READ, FORM_PERMISSIONS.WRITE, FORM_PERMISSIONS.DELETE, FORM_PERMISSIONS.MANAGE_ACL],
+                includes: [FORM_PERMISSIONS.READ, FORM_PERMISSIONS.WRITE, FORM_PERMISSIONS.DELETE],
             },
             {
                 key: 'edit',

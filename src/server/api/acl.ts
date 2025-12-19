@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { formsAcls, forms } from '@/lib/feature-pack-schemas';
 import { eq, desc, and, or } from 'drizzle-orm';
 import { extractUserFromRequest } from '../auth';
+import { FORM_PERMISSIONS } from '../../schema/forms';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -37,18 +38,23 @@ function extractAclId(request: NextRequest): string | null {
 }
 
 /**
- * Check if user can manage ACLs (owner or admin or has MANAGE_ACL permission)
+ * Check if user is admin
+ */
+function isAdmin(roles: string[]): boolean {
+  return roles.includes('admin') || roles.includes('Admin');
+}
+
+/**
+ * Check if user can manage ACLs (admin or has MANAGE_ACL permission)
  */
 async function canManageAcls(
   db: ReturnType<typeof getDb>,
   formId: string,
   userId: string,
-  roles: string[] = []
+  roles: string[]
 ): Promise<boolean> {
-  const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
-  if (!form) return false;
-  if (form.ownerUserId === userId) return true;
-  if (roles.includes('admin') || roles.includes('Admin')) return true;
+  // Admins can always manage ACLs
+  if (isAdmin(roles)) return true;
 
   // Check ACL entries for MANAGE_ACL permission
   const principalIds = [userId, ...roles].filter(Boolean);
@@ -64,13 +70,16 @@ async function canManageAcls(
       )
     );
 
+  if (aclEntries.length === 0) return false;
+
   const allPermissions = aclEntries.flatMap((e: { permissions: string[] | null }) => e.permissions || []);
-  return allPermissions.includes('MANAGE_ACL');
+  return allPermissions.includes(FORM_PERMISSIONS.MANAGE_ACL);
 }
 
 /**
  * GET /api/forms/[id]/acl
  * List ACLs for a form
+ * Requires: admin role OR MANAGE_ACL permission
  */
 export async function GET(request: NextRequest) {
   try {
@@ -83,6 +92,12 @@ export async function GET(request: NextRequest) {
     const formId = extractFormId(request);
     if (!formId) {
       return NextResponse.json({ error: 'Missing form id' }, { status: 400 });
+    }
+
+    // Check form exists
+    const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
+    if (!form) {
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
     // Check access
@@ -107,6 +122,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/forms/[id]/acl
  * Create ACL entry for a form
+ * Requires: admin role OR MANAGE_ACL permission
  */
 export async function POST(request: NextRequest) {
   try {
@@ -129,6 +145,12 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields: principalType, principalId, permissions' },
         { status: 400 }
       );
+    }
+
+    // Check form exists
+    const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
+    if (!form) {
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
     // Check access
@@ -175,6 +197,7 @@ export async function POST(request: NextRequest) {
 /**
  * DELETE /api/forms/[id]/acl/[aclId]
  * Delete ACL entry
+ * Requires: admin role OR MANAGE_ACL permission
  */
 export async function DELETE(request: NextRequest) {
   try {

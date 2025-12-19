@@ -159,7 +159,7 @@ export function EntryList({ id, onNavigate }: Props) {
   return (
     <Page
       title={form?.name || ''}
-      description={form?.isPublished ? 'Public entries' : 'Draft entries (owner-only)'}
+      description="Form entries"
       actions={
         <div className="flex items-center gap-2">
           <Button variant="primary" onClick={() => navigate(`/forms/${formId}/entries/new`)}>

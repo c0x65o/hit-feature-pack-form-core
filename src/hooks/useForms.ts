@@ -106,8 +106,12 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export function useForms(options: { page?: number; pageSize?: number; search?: string } = {}) {
-  const { page = 1, pageSize = 25, search = '' } = options;
+/**
+ * List forms
+ * @param adminMode - If true, lists ALL forms (requires admin role). Otherwise lists only forms user has READ ACL for.
+ */
+export function useForms(options: { page?: number; pageSize?: number; search?: string; adminMode?: boolean } = {}) {
+  const { page = 1, pageSize = 25, search = '', adminMode = false } = options;
   const [data, setData] = useState<PaginatedResponse<FormRecord> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -120,6 +124,7 @@ export function useForms(options: { page?: number; pageSize?: number; search?: s
         pageSize: String(pageSize),
       });
       if (search) params.set('search', search);
+      if (adminMode) params.set('admin', 'true');
 
       const result = await fetchApi<PaginatedResponse<FormRecord>>(`?${params.toString()}`);
       setData(result);
@@ -129,7 +134,7 @@ export function useForms(options: { page?: number; pageSize?: number; search?: s
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search]);
+  }, [page, pageSize, search, adminMode]);
 
   useEffect(() => {
     refresh();
@@ -229,19 +234,6 @@ export function useFormMutations() {
     }
   };
 
-  const publishForm = async (id: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchApi<{ success: boolean }>(`/${id}/publish`, { method: 'POST' });
-    } catch (e) {
-      setError(e as Error);
-      throw e;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const saveDraftFields = async (id: string, payload: { fields: Array<Partial<FormFieldRecord>>; listConfig?: any }) => {
     setLoading(true);
     setError(null);
@@ -262,19 +254,6 @@ export function useFormMutations() {
     createForm,
     updateForm,
     deleteForm,
-    publishForm,
-    unpublishForm: async (id: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        return await fetchApi<{ success: boolean }>(`/${id}/unpublish`, { method: 'POST' });
-      } catch (e) {
-        setError(e as Error);
-        throw e;
-      } finally {
-        setLoading(false);
-      }
-    },
     saveForm: async (
       id: string,
       payload: Partial<{
@@ -286,6 +265,7 @@ export function useFormMutations() {
         navWeight: number;
         navLabel: string;
         navIcon: string;
+        navParentPath: string;
         draft: { fields: Array<Partial<FormFieldRecord>>; listConfig?: any };
       }>
     ) => {

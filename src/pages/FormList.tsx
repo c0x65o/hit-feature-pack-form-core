@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Plus, Settings, Trash2 } from 'lucide-react';
+import { Plus, Settings, Trash2, Users } from 'lucide-react';
 import { useUi } from '@hit/ui-kit';
 import { useForms, useFormMutations } from '../hooks/useForms';
 
@@ -13,7 +13,8 @@ export function FormList({ onNavigate }: Props) {
   const { Page, Card, Button, DataTable, Alert } = useUi();
   const [page, setPage] = useState(1);
 
-  const { data, loading, error, refresh } = useForms({ page, pageSize: 25 });
+  // Admin mode: list ALL forms for management
+  const { data, loading, error, refresh } = useForms({ page, pageSize: 25, adminMode: true });
   const { deleteForm, loading: mutating } = useFormMutations();
 
   const navigate = (path: string) => {
@@ -26,21 +27,20 @@ export function FormList({ onNavigate }: Props) {
       id: f.id,
       name: f.name,
       slug: f.slug,
-      isPublished: f.isPublished,
       updatedAt: f.updatedAt,
     }));
   }, [data]);
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete form "${name}"? This will also delete its entries.`)) return;
+    if (!confirm(`Delete form "${name}"? This will also delete its entries and ACLs.`)) return;
     await deleteForm(id);
     refresh();
   };
 
   return (
     <Page
-      title="Forms"
-      description="Build and manage runtime forms"
+      title="Form Builder"
+      description="Build and manage form definitions. Use ACLs to control who can access each form."
       actions={
         <Button variant="primary" onClick={() => navigate('/forms/new')}>
           <Plus size={16} className="mr-2" />
@@ -72,12 +72,6 @@ export function FormList({ onNavigate }: Props) {
             },
             { key: 'slug', label: 'Slug', sortable: true },
             {
-              key: 'isPublished',
-              label: 'Published',
-              sortable: true,
-              render: (v: unknown) => (v ? 'Yes' : 'No'),
-            },
-            {
               key: 'actions',
               label: '',
               align: 'right' as const,
@@ -85,6 +79,9 @@ export function FormList({ onNavigate }: Props) {
               hideable: false,
               render: (_: unknown, row: any) => (
                 <div className="flex items-center justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${row.id}/entries`)}>
+                    <Users size={16} />
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${row.id}`)}>
                     <Settings size={16} />
                   </Button>
@@ -101,7 +98,7 @@ export function FormList({ onNavigate }: Props) {
             },
           ]}
           data={rows}
-          emptyMessage="No forms yet"
+          emptyMessage="No forms yet. Create your first form to get started."
           loading={loading}
           searchable
           pageSize={25}

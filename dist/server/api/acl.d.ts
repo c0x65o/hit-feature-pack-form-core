@@ -4,6 +4,7 @@ export declare const runtime = "nodejs";
 /**
  * GET /api/forms/[id]/acl
  * List ACLs for a form
+ * Requires: admin role OR MANAGE_ACL permission
  */
 export declare function GET(request: NextRequest): Promise<NextResponse<{
     error: string;
@@ -13,11 +14,13 @@ export declare function GET(request: NextRequest): Promise<NextResponse<{
 /**
  * POST /api/forms/[id]/acl
  * Create ACL entry for a form
+ * Requires: admin role OR MANAGE_ACL permission
  */
 export declare function POST(request: NextRequest): Promise<NextResponse<any>>;
 /**
  * DELETE /api/forms/[id]/acl/[aclId]
  * Delete ACL entry
+ * Requires: admin role OR MANAGE_ACL permission
  */
 export declare function DELETE(request: NextRequest): Promise<NextResponse<{
     error: string;

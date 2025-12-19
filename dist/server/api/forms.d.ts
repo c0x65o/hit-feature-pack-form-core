@@ -3,7 +3,10 @@ export declare const dynamic = "force-dynamic";
 export declare const runtime = "nodejs";
 /**
  * GET /api/forms
- * List forms with pagination, sorting, and search
+ *
+ * Two modes:
+ * - admin=true: List ALL forms (requires admin role) - for form definition management
+ * - default: List forms user has READ ACL for - for nav and entry access
  */
 export declare function GET(request: NextRequest): Promise<NextResponse<{
     error: string;
@@ -18,7 +21,7 @@ export declare function GET(request: NextRequest): Promise<NextResponse<{
 }>>;
 /**
  * POST /api/forms
- * Create a new form with initial draft version
+ * Create a new form - requires admin role
  */
 export declare function POST(request: NextRequest): Promise<NextResponse<any>>;
 //# sourceMappingURL=forms.d.ts.map

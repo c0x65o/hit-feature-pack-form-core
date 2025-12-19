@@ -29,10 +29,12 @@ export const forms = pgTable('forms', {
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 255 }).notNull(),
   description: text('description'),
-  // Draft (isPublished=false): only owner and admins can see
-  // Public (isPublished=true): owner, admins, and users with ACL entries can see
+  // isPublished + aclEnabled control access:
+  // - isPublished=false: only owner and admins can see
+  // - isPublished=true + aclEnabled=false: all authenticated users can see  
+  // - isPublished=true + aclEnabled=true: only users with ACL entries can see
   isPublished: boolean('is_published').notNull().default(false),
-  // Navigation config for published forms
+  // Navigation config for forms
   navShow: boolean('nav_show').notNull().default(true),
   navPlacement: varchar('nav_placement', { length: 32 }).notNull().default('under_forms'), // under_forms | top_level
   navGroup: varchar('nav_group', { length: 64 }).notNull().default('main'),
@@ -86,7 +88,7 @@ export const formEntries = pgTable(
   {
     id: varchar('id', { length: 255 }).primaryKey(),
     formId: varchar('form_id', { length: 255 }).notNull(),
-    // Entry visibility is governed by forms.isPublished + ACL + createdByUserId
+    // Entry visibility governed by form's isPublished + aclEnabled + ACL entries
     createdByUserId: varchar('created_by_user_id', { length: 255 }).notNull(),
     updatedByUserId: varchar('updated_by_user_id', { length: 255 }),
     data: jsonb('data').notNull(),

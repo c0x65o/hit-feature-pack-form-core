@@ -3,67 +3,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { forms, formVersions, formFields, formEntries, formEntryHistory, formsAcls } from '@/lib/feature-pack-schemas';
 import { and, desc, eq, or } from 'drizzle-orm';
-import { extractUserFromRequest, getUserId } from '../auth';
+import { extractUserFromRequest } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
 
 /**
- * Check if user can access a form
- * Draft (isPublished=false): only owner and admins can see
- * Public (isPublished=true): owner, admins, and users with ACL entries can see
+ * Check if user has a specific ACL permission on a form
  */
-async function canAccessForm(
+async function hasFormPermission(
   db: ReturnType<typeof getDb>,
   formId: string,
   userId: string,
-  roles: string[] = []
+  roles: string[],
+  permission: string
 ): Promise<boolean> {
-  // Check if user is owner
-  const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
-  if (!form) return false;
-  if (form.ownerUserId === userId) return true;
-
-  // Check if user is admin
-  if (roles.includes('admin') || roles.includes('Admin')) return true;
-
-  // Draft forms: only owner and admin can access
-  if (!form.isPublished) return false;
-
-  // Public forms: check ACL entries (user email, groups, roles)
-  const principalIds = [userId, ...roles].filter(Boolean);
-  if (principalIds.length === 0) return false;
-
-  const aclEntries = await db
-    .select()
-    .from(formsAcls)
-    .where(
-      and(
-        eq(formsAcls.formId, formId),
-        or(...principalIds.map((id) => eq(formsAcls.principalId, id)))
-      )
-    )
-    .limit(1);
-
-  return aclEntries.length > 0;
-}
-
-/**
- * Check if user can edit a form (owner, admin, or has ACL entry with MANAGE_ACL permission)
- */
-async function canEditForm(
-  db: ReturnType<typeof getDb>,
-  formId: string,
-  userId: string,
-  roles: string[] = []
-): Promise<boolean> {
-  // Check if user is owner
-  const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
-  if (!form) return false;
-  if (form.ownerUserId === userId) return true;
-
-  // Check if user is admin
-  if (roles.includes('admin') || roles.includes('Admin')) return true;
-
-  // Check ACL entries for MANAGE_ACL permission
   const principalIds = [userId, ...roles].filter(Boolean);
   if (principalIds.length === 0) return false;
 
@@ -79,9 +31,15 @@ async function canEditForm(
 
   if (aclEntries.length === 0) return false;
 
-  // Check if user has MANAGE_ACL permission
   const allPermissions = aclEntries.flatMap((e: { permissions: string[] | null }) => e.permissions || []);
-  return allPermissions.includes(FORM_PERMISSIONS.MANAGE_ACL);
+  return allPermissions.includes(permission);
+}
+
+/**
+ * Check if user is admin
+ */
+function isAdmin(roles: string[]): boolean {
+  return roles.includes('admin') || roles.includes('Admin');
 }
 
 export const dynamic = 'force-dynamic';
@@ -97,6 +55,7 @@ function extractFormId(request: NextRequest): string | null {
 /**
  * GET /api/forms/[id]
  * Get a form with its current draft version and fields
+ * Requires: admin role OR READ ACL
  */
 export async function GET(request: NextRequest) {
   try {
@@ -111,9 +70,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check access (owner, admin, or ACL)
-    const hasAccess = await canAccessForm(db, formId, user.sub, user.roles || []);
-    if (!hasAccess) {
+    const roles = user.roles || [];
+
+    // Check access: admin can always access, others need READ ACL
+    const canAccess = isAdmin(roles) || await hasFormPermission(db, formId, user.sub, roles, FORM_PERMISSIONS.READ);
+    if (!canAccess) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
@@ -159,6 +120,7 @@ export async function GET(request: NextRequest) {
 /**
  * PUT /api/forms/[id]
  * Update form metadata and fields
+ * Requires: admin role (for form definitions)
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -173,6 +135,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const roles = user.roles || [];
+
+    // Only admins can edit form definitions
+    if (!isAdmin(roles)) {
+      return NextResponse.json({ error: 'Admin required to edit forms' }, { status: 403 });
+    }
+
     const body = await request.json();
 
     // Get existing form
@@ -184,12 +153,6 @@ export async function PUT(request: NextRequest) {
 
     if (!existingForm) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
-    }
-
-    // Check access (owner, admin, or ACL with MANAGE_ACL permission)
-    const canEdit = await canEditForm(db, formId, user.sub, user.roles || []);
-    if (!canEdit) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
     // Update form metadata
@@ -281,7 +244,8 @@ export async function PUT(request: NextRequest) {
 
 /**
  * DELETE /api/forms/[id]
- * Delete form and all related data (versions, fields, entries, history)
+ * Delete form and all related data (versions, fields, entries, history, ACLs)
+ * Requires: admin role
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -296,6 +260,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const roles = user.roles || [];
+
+    // Only admins can delete forms
+    if (!isAdmin(roles)) {
+      return NextResponse.json({ error: 'Admin required to delete forms' }, { status: 403 });
+    }
+
     // Get existing form
     const [existingForm] = await db
       .select()
@@ -307,26 +278,23 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
-    // Check access (owner, admin, or ACL with MANAGE_ACL permission)
-    const canEdit = await canEditForm(db, formId, user.sub, user.roles || []);
-    if (!canEdit) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
+    // Delete in order: ACLs -> history -> entries -> fields -> versions -> form
+    // 1. Delete ACLs
+    await db.delete(formsAcls).where(eq(formsAcls.formId, formId));
 
-    // Delete in order: history -> entries -> fields -> versions -> form
-    // 1. Delete entry history
+    // 2. Delete entry history
     await db.delete(formEntryHistory).where(eq(formEntryHistory.formId, formId));
 
-    // 2. Delete entries
+    // 3. Delete entries
     await db.delete(formEntries).where(eq(formEntries.formId, formId));
 
-    // 3. Delete fields
+    // 4. Delete fields
     await db.delete(formFields).where(eq(formFields.formId, formId));
 
-    // 4. Delete versions
+    // 5. Delete versions
     await db.delete(formVersions).where(eq(formVersions.formId, formId));
 
-    // 5. Delete form
+    // 6. Delete form
     await db.delete(forms).where(eq(forms.id, formId));
 
     return NextResponse.json({ success: true });

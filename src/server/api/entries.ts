@@ -7,29 +7,15 @@ import { extractUserFromRequest } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
 
 /**
- * Check if user can access a form
- * Draft (isPublished=false): only owner and admins can see
- * Public (isPublished=true): owner, admins, and users with ACL entries can see
+ * Check if user has a specific ACL permission on a form
  */
-async function checkFormAccess(
+async function hasFormPermission(
   db: ReturnType<typeof getDb>,
   formId: string,
   userId: string,
-  roles: string[] = [],
-  requiredPermission?: string
+  roles: string[],
+  permission: string
 ): Promise<boolean> {
-  // Check if user is owner
-  const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
-  if (!form) return false;
-  if (form.ownerUserId === userId) return true;
-
-  // Check if user is admin
-  if (roles.includes('admin') || roles.includes('Admin')) return true;
-
-  // Draft forms: only owner and admin can access
-  if (!form.isPublished) return false;
-
-  // Public forms: check ACL entries
   const principalIds = [userId, ...roles].filter(Boolean);
   if (principalIds.length === 0) return false;
 
@@ -45,13 +31,8 @@ async function checkFormAccess(
 
   if (aclEntries.length === 0) return false;
 
-  // If specific permission required, check it
-  if (requiredPermission) {
-    const allPermissions = aclEntries.flatMap((e: { permissions: string[] | null }) => e.permissions || []);
-    return allPermissions.includes(requiredPermission);
-  }
-
-  return true; // Has some ACL entry
+  const allPermissions = aclEntries.flatMap((e: { permissions: string[] | null }) => e.permissions || []);
+  return allPermissions.includes(permission);
 }
 
 export const dynamic = 'force-dynamic';
@@ -86,6 +67,7 @@ function computeSearchText(data: Record<string, unknown>): string {
 /**
  * GET /api/forms/[id]/entries
  * List entries for a form with pagination, sorting, and search
+ * Requires: READ ACL
  */
 export async function GET(request: NextRequest) {
   try {
@@ -114,8 +96,8 @@ export async function GET(request: NextRequest) {
     // Search
     const search = searchParams.get('search') || '';
 
-    // Check access (owner, admin, or ACL with READ permission)
-    const hasAccess = await checkFormAccess(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.READ);
+    // Check ACL - need READ permission
+    const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.READ);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
@@ -202,6 +184,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/forms/[id]/entries
  * Create a new entry
+ * Requires: WRITE ACL
  */
 export async function POST(request: NextRequest) {
   try {
@@ -218,8 +201,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Check access (owner, admin, or ACL with WRITE permission)
-    const hasAccess = await checkFormAccess(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.WRITE);
+    // Check ACL - need WRITE permission
+    const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.WRITE);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }

@@ -1,27 +1,14 @@
 // src/server/api/entries-id.ts
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { forms, formEntries, formEntryHistory, formsAcls } from '@/lib/feature-pack-schemas';
+import { formEntries, formEntryHistory, formsAcls } from '@/lib/feature-pack-schemas';
 import { and, eq, or, sql } from 'drizzle-orm';
 import { extractUserFromRequest } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
 /**
- * Check if user can access a form
- * Draft (isPublished=false): only owner and admins can see
- * Public (isPublished=true): owner, admins, and users with ACL entries can see
+ * Check if user has a specific ACL permission on a form
  */
-async function checkFormAccess(db, formId, userId, roles = [], requiredPermission) {
-    const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
-    if (!form)
-        return false;
-    if (form.ownerUserId === userId)
-        return true;
-    if (roles.includes('admin') || roles.includes('Admin'))
-        return true;
-    // Draft forms: only owner and admin can access
-    if (!form.isPublished)
-        return false;
-    // Public forms: check ACL entries
+async function hasFormPermission(db, formId, userId, roles, permission) {
     const principalIds = [userId, ...roles].filter(Boolean);
     if (principalIds.length === 0)
         return false;
@@ -31,11 +18,8 @@ async function checkFormAccess(db, formId, userId, roles = [], requiredPermissio
         .where(and(eq(formsAcls.formId, formId), or(...principalIds.map((id) => eq(formsAcls.principalId, id)))));
     if (aclEntries.length === 0)
         return false;
-    if (requiredPermission) {
-        const allPermissions = aclEntries.flatMap((e) => e.permissions || []);
-        return allPermissions.includes(requiredPermission);
-    }
-    return true;
+    const allPermissions = aclEntries.flatMap((e) => e.permissions || []);
+    return allPermissions.includes(permission);
 }
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -72,6 +56,7 @@ function computeSearchText(data) {
 /**
  * GET /api/forms/[id]/entries/[entryId]
  * Get a single entry
+ * Requires: READ ACL
  */
 export async function GET(request) {
     try {
@@ -84,8 +69,8 @@ export async function GET(request) {
         if (!user?.sub) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-        // Check access (owner, admin, or ACL with READ permission)
-        const hasAccess = await checkFormAccess(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.READ);
+        // Check ACL - need READ permission
+        const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.READ);
         if (!hasAccess) {
             return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
         }
@@ -108,6 +93,7 @@ export async function GET(request) {
 /**
  * PUT /api/forms/[id]/entries/[entryId]
  * Update an entry (with history tracking)
+ * Requires: WRITE ACL
  */
 export async function PUT(request) {
     try {
@@ -121,8 +107,8 @@ export async function PUT(request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const body = await request.json();
-        // Check access (owner, admin, or ACL with WRITE permission)
-        const hasAccess = await checkFormAccess(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.WRITE);
+        // Check ACL - need WRITE permission
+        const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.WRITE);
         if (!hasAccess) {
             return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
         }
@@ -177,6 +163,7 @@ export async function PUT(request) {
 /**
  * DELETE /api/forms/[id]/entries/[entryId]
  * Delete an entry (with history tracking)
+ * Requires: DELETE ACL
  */
 export async function DELETE(request) {
     try {
@@ -189,8 +176,8 @@ export async function DELETE(request) {
         if (!user?.sub) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-        // Check access (owner, admin, or ACL with DELETE permission)
-        const hasAccess = await checkFormAccess(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.DELETE);
+        // Check ACL - need DELETE permission
+        const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.DELETE);
         if (!hasAccess) {
             return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
         }

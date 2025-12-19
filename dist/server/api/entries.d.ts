@@ -4,6 +4,7 @@ export declare const runtime = "nodejs";
 /**
  * GET /api/forms/[id]/entries
  * List entries for a form with pagination, sorting, and search
+ * Requires: READ ACL
  */
 export declare function GET(request: NextRequest): Promise<NextResponse<{
     error: string;
@@ -21,6 +22,7 @@ export declare function GET(request: NextRequest): Promise<NextResponse<{
 /**
  * POST /api/forms/[id]/entries
  * Create a new entry
+ * Requires: WRITE ACL
  */
 export declare function POST(request: NextRequest): Promise<NextResponse<any>>;
 //# sourceMappingURL=entries.d.ts.map
