@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useUi } from '@hit/ui-kit';
 import { useLinkedFormEntries, useLinkedForms, type LinkedFormInfo, type LinkedEntityKind } from '../hooks/useLinkedEntities';
+import { MetricsPanel, type MetricsViewMetadata } from './MetricsPanel';
 
 export interface LinkedEntityTabsProps {
   entity: { kind: LinkedEntityKind; id: string };
@@ -86,6 +87,7 @@ export function LinkedEntityTabs({
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [page, setPage] = useState(1);
   const [viewFilters, setViewFilters] = useState<ViewFilter[]>([]);
+  const [currentView, setCurrentView] = useState<any | null>(null);
 
   const visibleLinkedForms = useMemo(() => {
     return includeZeroCountTabs ? linkedForms : linkedForms.filter((f) => f.count > 0);
@@ -117,6 +119,7 @@ export function LinkedEntityTabs({
       setActiveTab(tabId);
       setPage(1);
       setViewFilters([]);
+      setCurrentView(null);
     },
     [setActiveTab]
   );
@@ -206,6 +209,11 @@ export function LinkedEntityTabs({
   }, [entriesData?.items]);
   
   const filteredRows = useMemo(() => applyViewFilters(rows, viewFilters), [rows, viewFilters]);
+  
+  const metricsMeta: MetricsViewMetadata | null = useMemo(() => {
+    const m = currentView?.metadata?.metrics;
+    return m && typeof m === 'object' ? (m as MetricsViewMetadata) : null;
+  }, [currentView]);
 
   return (
     <div>
@@ -234,27 +242,33 @@ export function LinkedEntityTabs({
               No entries found for this {entity.kind}.
             </div>
           ) : (
-            <DataTable
-              columns={columns as any}
-              data={filteredRows}
-              emptyMessage="No entries found"
-              loading={entriesLoading || formsLoading}
-              searchable
-              pageSize={pageSize}
-              page={page}
-              total={entriesData?.pagination.total}
-              onPageChange={setPage}
-              manualPagination
-              onRefresh={refreshEntries}
-              refreshing={entriesLoading}
-              tableId={`forms.entries.${selectedFormInfo.formId}`}
-              enableViews={true}
-              onViewFiltersChange={(filters) => setViewFilters(filters as any)}
-              onRowClick={(row: any) => {
-                const href = rowHref({ formId: selectedFormInfo.formId, entryId: String(row.id) });
-                safeNavigate(href, onNavigate);
-              }}
-            />
+            <>
+              {metricsMeta && (
+                <MetricsPanel entityKind={entity.kind} entityId={entity.id} metrics={metricsMeta} />
+              )}
+              <DataTable
+                columns={columns as any}
+                data={filteredRows}
+                emptyMessage="No entries found"
+                loading={entriesLoading || formsLoading}
+                searchable
+                pageSize={pageSize}
+                page={page}
+                total={entriesData?.pagination.total}
+                onPageChange={setPage}
+                manualPagination
+                onRefresh={refreshEntries}
+                refreshing={entriesLoading}
+                tableId={`forms.entries.${selectedFormInfo.formId}`}
+                enableViews={true}
+                onViewChange={(view) => setCurrentView(view)}
+                onViewFiltersChange={(filters) => setViewFilters(filters as any)}
+                onRowClick={(row: any) => {
+                  const href = rowHref({ formId: selectedFormInfo.formId, entryId: String(row.id) });
+                  safeNavigate(href, onNavigate);
+                }}
+              />
+            </>
           )}
         </Card>
       )}

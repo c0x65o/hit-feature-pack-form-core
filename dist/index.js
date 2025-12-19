@@ -16,4 +16,5 @@ export { forms, formVersions, formFields, formEntries, formEntryHistory, formsAc
 // Component exports
 export { FormAclModal } from './components/FormAclModal';
 export { LinkedEntityTabs } from './components/LinkedEntityTabs';
+export { MetricsPanel } from './components/MetricsPanel';
 //# sourceMappingURL=index.js.map

@@ -53,3 +53,4 @@ export {
 // Component exports
 export { FormAclModal } from './components/FormAclModal';
 export { LinkedEntityTabs } from './components/LinkedEntityTabs';
+export { MetricsPanel, type MetricsViewMetadata } from './components/MetricsPanel';

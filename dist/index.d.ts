@@ -11,4 +11,5 @@ export { navContributions as nav } from './nav';
 export { forms, formVersions, formFields, formEntries, formEntryHistory, formsAcls, principalTypeEnum as formsPrincipalTypeEnum, FORM_PERMISSIONS, type Form, type FormVersion, type FormField, type FormEntry, type FormEntryHistory, type FormsAcl, type FormPermission, type InsertForm, type InsertFormVersion, type InsertFormField, type InsertFormEntry, type InsertFormsAcl, } from './schema/forms';
 export { FormAclModal } from './components/FormAclModal';
 export { LinkedEntityTabs } from './components/LinkedEntityTabs';
+export { MetricsPanel, type MetricsViewMetadata } from './components/MetricsPanel';
 //# sourceMappingURL=index.d.ts.map
