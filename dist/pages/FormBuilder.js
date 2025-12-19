@@ -13,7 +13,7 @@ function slugify(input) {
         .replace(/(^-|-$)/g, '');
 }
 export function FormBuilder({ id, onNavigate }) {
-    const { Page, Card, Button, Input, TextArea, Select, Alert } = useUi();
+    const { Page, Card, Button, Input, TextArea, Select, Alert, Modal } = useUi();
     const isNew = !id || id === 'new';
     const { form, version, loading: loadingForm, error: loadError, refresh } = useForm(isNew ? undefined : id);
     const { createForm, saveForm, loading: saving, error: saveError } = useFormMutations();
@@ -415,80 +415,105 @@ export function FormBuilder({ id, onNavigate }) {
                                                     catch (err) {
                                                         alert(err?.message || 'Failed to delete view');
                                                     }
-                                                }, children: _jsx(Trash2, { size: 14, className: "text-red-500" }) })] }))] }, view.id)))] })] })), showViewBuilder && (_jsx("div", { className: "fixed inset-0 bg-black/50 flex items-center justify-center z-50", children: _jsxs("div", { className: "bg-gray-900 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto", children: [_jsx("h2", { className: "text-xl font-semibold mb-4", children: editingView ? 'Edit View' : 'Create View' }), _jsxs("div", { className: "space-y-4", children: [_jsx(Input, { label: "View Name", value: viewBuilderName, onChange: setViewBuilderName, placeholder: "e.g., Active Items, Recent Entries" }), _jsx(TextArea, { label: "Description (optional)", value: viewBuilderDescription, onChange: setViewBuilderDescription, placeholder: "Describe what this view shows" }), _jsxs("div", { children: [_jsxs("div", { className: "flex items-center justify-between mb-2", children: [_jsx("label", { className: "text-sm font-medium", children: "Filters" }), _jsxs(Button, { variant: "secondary", size: "sm", onClick: () => {
-                                                        const firstField = fields[0];
-                                                        setViewBuilderFilters([
-                                                            ...viewBuilderFilters,
-                                                            {
-                                                                field: firstField?.key || '',
-                                                                operator: 'equals',
-                                                                value: '',
-                                                                valueType: 'string',
-                                                                sortOrder: viewBuilderFilters.length,
-                                                            },
-                                                        ]);
-                                                    }, children: [_jsx(Plus, { size: 14, className: "mr-1" }), "Add Filter"] })] }), viewBuilderFilters.length === 0 && (_jsx("div", { className: "text-sm text-gray-500 p-4 border border-dashed border-gray-600 rounded-lg text-center", children: "No filters. This view will show all entries." })), viewBuilderFilters.map((filter, idx) => {
-                                            const fieldDef = fields.find((f) => f.key === filter.field);
-                                            return (_jsxs("div", { className: "flex items-center gap-2 p-3 border border-gray-700 rounded-lg mb-2", children: [_jsx(Select, { value: filter.field, onChange: (v) => {
-                                                            const next = [...viewBuilderFilters];
-                                                            next[idx] = { ...next[idx], field: v };
-                                                            setViewBuilderFilters(next);
-                                                        }, options: fields.map((f) => ({ value: f.key, label: f.label })) }), _jsx(Select, { value: filter.operator, onChange: (v) => {
-                                                            const next = [...viewBuilderFilters];
-                                                            next[idx] = { ...next[idx], operator: v };
-                                                            setViewBuilderFilters(next);
-                                                        }, options: [
-                                                            { value: 'equals', label: 'Equals' },
-                                                            { value: 'notEquals', label: 'Not Equals' },
-                                                            { value: 'contains', label: 'Contains' },
-                                                            { value: 'isNull', label: 'Is Empty' },
-                                                            { value: 'isNotNull', label: 'Is Not Empty' },
-                                                        ] }), !['isNull', 'isNotNull'].includes(filter.operator) && (fieldDef?.type === 'select' && fieldDef?.config?.options ? (_jsx(Select, { value: String(filter.value || ''), onChange: (v) => {
-                                                            const next = [...viewBuilderFilters];
-                                                            next[idx] = { ...next[idx], value: v };
-                                                            setViewBuilderFilters(next);
-                                                        }, options: (fieldDef.config.options || []).map((opt) => ({
-                                                            value: typeof opt === 'string' ? opt : opt.value,
-                                                            label: typeof opt === 'string' ? opt : opt.label,
-                                                        })) })) : (_jsx(Input, { value: String(filter.value || ''), onChange: (v) => {
-                                                            const next = [...viewBuilderFilters];
-                                                            next[idx] = { ...next[idx], value: v };
-                                                            setViewBuilderFilters(next);
-                                                        }, placeholder: "Value" }))), _jsx(Button, { variant: "ghost", size: "sm", onClick: () => {
-                                                            setViewBuilderFilters(viewBuilderFilters.filter((_, i) => i !== idx));
-                                                        }, children: _jsx(Trash2, { size: 14, className: "text-red-500" }) })] }, idx));
-                                        })] }), _jsxs("label", { className: "flex items-center gap-2 text-sm", children: [_jsx("input", { type: "checkbox", checked: viewBuilderIsDefault, onChange: (e) => setViewBuilderIsDefault(e.target.checked) }), "Set as default view"] })] }), _jsxs("div", { className: "flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700", children: [_jsx(Button, { variant: "secondary", onClick: () => {
+                                                }, children: _jsx(Trash2, { size: 14, className: "text-red-500" }) })] }))] }, view.id)))] })] })), _jsxs(Modal, { open: showViewBuilder, onClose: () => {
+                    setShowViewBuilder(false);
+                    setEditingView(null);
+                }, title: editingView ? 'Edit View' : 'Create View', size: "lg", children: [_jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: '16px' }, children: [_jsx(Input, { label: "View Name", value: viewBuilderName, onChange: setViewBuilderName, placeholder: "e.g., Active Items, Recent Entries" }), _jsx(TextArea, { label: "Description (optional)", value: viewBuilderDescription, onChange: setViewBuilderDescription, placeholder: "Describe what this view shows" }), _jsxs("div", { children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }, children: [_jsx("span", { style: { fontSize: '14px', fontWeight: 500 }, children: "Filters" }), _jsxs(Button, { variant: "secondary", size: "sm", onClick: () => {
+                                                    const firstField = fields[0];
+                                                    setViewBuilderFilters([
+                                                        ...viewBuilderFilters,
+                                                        {
+                                                            field: firstField?.key || '',
+                                                            operator: 'equals',
+                                                            value: '',
+                                                            valueType: 'string',
+                                                            sortOrder: viewBuilderFilters.length,
+                                                        },
+                                                    ]);
+                                                }, children: [_jsx(Plus, { size: 14, style: { marginRight: '4px' } }), "Add Filter"] })] }), viewBuilderFilters.length === 0 && (_jsx("div", { style: {
+                                            fontSize: '14px',
+                                            padding: '16px',
+                                            border: '1px dashed var(--hit-border, #374151)',
+                                            borderRadius: '8px',
+                                            textAlign: 'center',
+                                            color: 'var(--hit-muted-foreground, #9ca3af)',
+                                        }, children: "No filters. This view will show all entries." })), viewBuilderFilters.map((filter, idx) => {
+                                        const fieldDef = fields.find((f) => f.key === filter.field);
+                                        return (_jsxs("div", { style: {
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                padding: '12px',
+                                                border: '1px solid var(--hit-border, #374151)',
+                                                borderRadius: '8px',
+                                                marginBottom: '8px',
+                                            }, children: [_jsx(Select, { value: filter.field, onChange: (v) => {
+                                                        const next = [...viewBuilderFilters];
+                                                        next[idx] = { ...next[idx], field: v };
+                                                        setViewBuilderFilters(next);
+                                                    }, options: fields.map((f) => ({ value: f.key, label: f.label })) }), _jsx(Select, { value: filter.operator, onChange: (v) => {
+                                                        const next = [...viewBuilderFilters];
+                                                        next[idx] = { ...next[idx], operator: v };
+                                                        setViewBuilderFilters(next);
+                                                    }, options: [
+                                                        { value: 'equals', label: 'Equals' },
+                                                        { value: 'notEquals', label: 'Not Equals' },
+                                                        { value: 'contains', label: 'Contains' },
+                                                        { value: 'isNull', label: 'Is Empty' },
+                                                        { value: 'isNotNull', label: 'Is Not Empty' },
+                                                    ] }), !['isNull', 'isNotNull'].includes(filter.operator) && (fieldDef?.type === 'select' && fieldDef?.config?.options ? (_jsx(Select, { value: String(filter.value || ''), onChange: (v) => {
+                                                        const next = [...viewBuilderFilters];
+                                                        next[idx] = { ...next[idx], value: v };
+                                                        setViewBuilderFilters(next);
+                                                    }, options: (fieldDef.config.options || []).map((opt) => ({
+                                                        value: typeof opt === 'string' ? opt : opt.value,
+                                                        label: typeof opt === 'string' ? opt : opt.label,
+                                                    })) })) : (_jsx(Input, { value: String(filter.value || ''), onChange: (v) => {
+                                                        const next = [...viewBuilderFilters];
+                                                        next[idx] = { ...next[idx], value: v };
+                                                        setViewBuilderFilters(next);
+                                                    }, placeholder: "Value" }))), _jsx(Button, { variant: "ghost", size: "sm", onClick: () => {
+                                                        setViewBuilderFilters(viewBuilderFilters.filter((_, i) => i !== idx));
+                                                    }, children: _jsx(Trash2, { size: 14, style: { color: 'var(--hit-error, #ef4444)' } }) })] }, idx));
+                                    })] }), _jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }, children: [_jsx("input", { type: "checkbox", checked: viewBuilderIsDefault, onChange: (e) => setViewBuilderIsDefault(e.target.checked) }), "Set as default view"] })] }), _jsxs("div", { style: {
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            gap: '12px',
+                            marginTop: '24px',
+                            paddingTop: '16px',
+                            borderTop: '1px solid var(--hit-border, #374151)',
+                        }, children: [_jsx(Button, { variant: "secondary", onClick: () => {
+                                    setShowViewBuilder(false);
+                                    setEditingView(null);
+                                }, disabled: viewBuilderSaving, children: "Cancel" }), _jsx(Button, { variant: "primary", disabled: !viewBuilderName.trim() || viewBuilderSaving, onClick: async () => {
+                                    if (!viewBuilderName.trim())
+                                        return;
+                                    setViewBuilderSaving(true);
+                                    try {
+                                        const viewData = {
+                                            name: viewBuilderName.trim(),
+                                            description: viewBuilderDescription.trim() || undefined,
+                                            filters: viewBuilderFilters.filter((f) => f.field && f.operator),
+                                            isDefault: viewBuilderIsDefault,
+                                            isSystem: true, // FormBuilder creates system views visible to all users
+                                        };
+                                        if (editingView) {
+                                            await updateView(editingView.id, viewData);
+                                        }
+                                        else {
+                                            await createView(viewData);
+                                        }
+                                        refreshViews();
                                         setShowViewBuilder(false);
                                         setEditingView(null);
-                                    }, disabled: viewBuilderSaving, children: "Cancel" }), _jsx(Button, { variant: "primary", disabled: !viewBuilderName.trim() || viewBuilderSaving, onClick: async () => {
-                                        if (!viewBuilderName.trim())
-                                            return;
-                                        setViewBuilderSaving(true);
-                                        try {
-                                            const viewData = {
-                                                name: viewBuilderName.trim(),
-                                                description: viewBuilderDescription.trim() || undefined,
-                                                filters: viewBuilderFilters.filter((f) => f.field && f.operator),
-                                                isDefault: viewBuilderIsDefault,
-                                                isSystem: true, // FormBuilder creates system views visible to all users
-                                            };
-                                            if (editingView) {
-                                                await updateView(editingView.id, viewData);
-                                            }
-                                            else {
-                                                await createView(viewData);
-                                            }
-                                            refreshViews();
-                                            setShowViewBuilder(false);
-                                            setEditingView(null);
-                                        }
-                                        catch (err) {
-                                            alert(err?.message || 'Failed to save view');
-                                        }
-                                        finally {
-                                            setViewBuilderSaving(false);
-                                        }
-                                    }, children: viewBuilderSaving ? 'Saving...' : editingView ? 'Update View' : 'Create View' })] })] }) })), !isNew && id && (_jsx(FormAclModal, { formId: id, isOpen: showAclModal, onClose: () => setShowAclModal(false), onUpdate: () => refresh() }))] }));
+                                    }
+                                    catch (err) {
+                                        alert(err?.message || 'Failed to save view');
+                                    }
+                                    finally {
+                                        setViewBuilderSaving(false);
+                                    }
+                                }, children: viewBuilderSaving ? 'Saving...' : editingView ? 'Update View' : 'Create View' })] })] }), !isNew && id && (_jsx(FormAclModal, { formId: id, isOpen: showAclModal, onClose: () => setShowAclModal(false), onUpdate: () => refresh() }))] }));
 }
 export default FormBuilder;
 //# sourceMappingURL=FormBuilder.js.map
