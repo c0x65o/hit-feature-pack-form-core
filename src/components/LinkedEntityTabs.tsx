@@ -18,9 +18,56 @@ function defaultRowHref(args: { formId: string; entryId: string }): string {
   return `/forms/${encodeURIComponent(args.formId)}/entries/${encodeURIComponent(args.entryId)}`;
 }
 
+type ViewFilter = {
+  field: string;
+  operator: string;
+  value: string | number | boolean | null;
+};
+
 function safeNavigate(path: string, onNavigate?: (path: string) => void) {
   if (onNavigate) return onNavigate(path);
   window.location.href = path;
+}
+
+function applyViewFilters<T extends Record<string, unknown>>(rows: T[], filters: ViewFilter[]): T[] {
+  if (!filters || filters.length === 0) return rows;
+
+  const norm = (v: unknown) => (v === null || v === undefined ? '' : String(v));
+
+  return rows.filter((row) => {
+    return filters.every((f) => {
+      const raw = (row as any)?.[f.field];
+      const v = raw === undefined ? (row as any)?.data?.[f.field] : raw;
+      const s = norm(v);
+      const fv = f.value;
+
+      switch (f.operator) {
+        case 'equals':
+          return s === norm(fv);
+        case 'notEquals':
+          return s !== norm(fv);
+        case 'contains':
+          return s.toLowerCase().includes(norm(fv).toLowerCase());
+        case 'notContains':
+          return !s.toLowerCase().includes(norm(fv).toLowerCase());
+        case 'startsWith':
+          return s.toLowerCase().startsWith(norm(fv).toLowerCase());
+        case 'endsWith':
+          return s.toLowerCase().endsWith(norm(fv).toLowerCase());
+        case 'isNull':
+          return v === null || v === undefined || s === '';
+        case 'isNotNull':
+          return !(v === null || v === undefined || s === '');
+        case 'isTrue':
+          return v === true || s === 'true' || s === '1';
+        case 'isFalse':
+          return v === false || s === 'false' || s === '0';
+        default:
+          // Unknown operator -> don't filter out
+          return true;
+      }
+    });
+  });
 }
 
 export function LinkedEntityTabs({
@@ -38,6 +85,7 @@ export function LinkedEntityTabs({
 
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [page, setPage] = useState(1);
+  const [viewFilters, setViewFilters] = useState<ViewFilter[]>([]);
 
   const visibleLinkedForms = useMemo(() => {
     return includeZeroCountTabs ? linkedForms : linkedForms.filter((f) => f.count > 0);
@@ -68,6 +116,7 @@ export function LinkedEntityTabs({
     (tabId: string) => {
       setActiveTab(tabId);
       setPage(1);
+      setViewFilters([]);
     },
     [setActiveTab]
   );
@@ -155,6 +204,8 @@ export function LinkedEntityTabs({
       updatedAt: e.updatedAt,
     }));
   }, [entriesData?.items]);
+  
+  const filteredRows = useMemo(() => applyViewFilters(rows, viewFilters), [rows, viewFilters]);
 
   return (
     <div>
@@ -185,7 +236,7 @@ export function LinkedEntityTabs({
           ) : (
             <DataTable
               columns={columns as any}
-              data={rows}
+              data={filteredRows}
               emptyMessage="No entries found"
               loading={entriesLoading || formsLoading}
               searchable
@@ -196,6 +247,9 @@ export function LinkedEntityTabs({
               manualPagination
               onRefresh={refreshEntries}
               refreshing={entriesLoading}
+              tableId={`forms.entries.${selectedFormInfo.formId}`}
+              enableViews={true}
+              onViewFiltersChange={(filters) => setViewFilters(filters as any)}
               onRowClick={(row: any) => {
                 const href = rowHref({ formId: selectedFormInfo.formId, entryId: String(row.id) });
                 safeNavigate(href, onNavigate);
