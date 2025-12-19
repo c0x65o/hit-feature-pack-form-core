@@ -5,7 +5,6 @@ import { ArrowLeft, Plus, Save, UploadCloud, ClipboardList, FileText, Share2, Ey
 import { useUi, useTableView, type BreadcrumbItem, type TableView, type TableViewFilter } from '@hit/ui-kit';
 import {
   FieldType,
-  FormScope,
   useForms,
   useForm,
   useFormMutations,
@@ -53,7 +52,6 @@ export function FormBuilder({ id, onNavigate }: Props) {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
-  const [scope, setScope] = useState<FormScope>('private');
 
   // Nav config
   const [navShow, setNavShow] = useState(true);
@@ -105,7 +103,6 @@ export function FormBuilder({ id, onNavigate }: Props) {
       setName(form.name);
       setSlug(form.slug);
       setDescription(form.description || '');
-      setScope(form.scope);
       setNavShow(form.navShow ?? true);
       // Determine placement from navParentPath
       if (form.navParentPath) {
@@ -178,7 +175,6 @@ export function FormBuilder({ id, onNavigate }: Props) {
           name: name.trim(),
           slug: slug.trim() || slugify(name),
           description: description.trim() || undefined,
-          scope,
           navShow,
           navPlacement: navPlacement === 'custom' ? 'under_forms' : navPlacement,
           navGroup,
@@ -201,7 +197,6 @@ export function FormBuilder({ id, onNavigate }: Props) {
       await saveForm(id, {
         name: name.trim(),
         description: description.trim() || undefined,
-        scope,
         navShow,
         navPlacement: navPlacement === 'custom' ? 'under_forms' : navPlacement,
         navGroup,
@@ -1028,6 +1023,7 @@ export function FormBuilder({ id, onNavigate }: Props) {
                       description: viewBuilderDescription.trim() || undefined,
                       filters: viewBuilderFilters.filter((f) => f.field && f.operator),
                       isDefault: viewBuilderIsDefault,
+                      isSystem: true, // FormBuilder creates system views visible to all users
                     };
                     
                     if (editingView) {

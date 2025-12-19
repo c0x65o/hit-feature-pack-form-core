@@ -14,10 +14,8 @@ export const forms = pgTable('forms', {
     name: varchar('name', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 255 }).notNull(),
     description: text('description'),
-    // Scope:
-    // - private: only owner can see entries
-    // - project: any authenticated user can see entries
-    scope: varchar('scope', { length: 32 }).notNull().default('private'),
+    // Draft (isPublished=false): only owner and admins can see
+    // Public (isPublished=true): owner, admins, and users with ACL entries can see
     isPublished: boolean('is_published').notNull().default(false),
     // Navigation config for published forms
     navShow: boolean('nav_show').notNull().default(true),
@@ -68,7 +66,7 @@ export const formFields = pgTable('form_fields', {
 export const formEntries = pgTable('form_entries', {
     id: varchar('id', { length: 255 }).primaryKey(),
     formId: varchar('form_id', { length: 255 }).notNull(),
-    // Entry visibility is governed by forms.scope + createdByUserId
+    // Entry visibility is governed by forms.isPublished + ACL + createdByUserId
     createdByUserId: varchar('created_by_user_id', { length: 255 }).notNull(),
     updatedByUserId: varchar('updated_by_user_id', { length: 255 }),
     data: jsonb('data').notNull(),

@@ -20,7 +20,6 @@ export function FormList({ onNavigate }) {
             id: f.id,
             name: f.name,
             slug: f.slug,
-            scope: f.scope,
             isPublished: f.isPublished,
             updatedAt: f.updatedAt,
         }));
@@ -39,12 +38,6 @@ export function FormList({ onNavigate }) {
                             render: (_, row) => (_jsx("button", { className: "font-medium hover:text-blue-500 transition-colors text-left", onClick: () => navigate(`/forms/${row.id}`), children: row.name })),
                         },
                         { key: 'slug', label: 'Slug', sortable: true },
-                        {
-                            key: 'scope',
-                            label: 'Scope',
-                            sortable: true,
-                            render: (v) => String(v),
-                        },
                         {
                             key: 'isPublished',
                             label: 'Published',

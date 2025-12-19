@@ -7,7 +7,9 @@ import { extractUserFromRequest } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
 
 /**
- * Check if user can access a form (owner, admin, or has ACL entry with required permission)
+ * Check if user can access a form
+ * Draft (isPublished=false): only owner and admins can see
+ * Public (isPublished=true): owner, admins, and users with ACL entries can see
  */
 async function checkFormAccess(
   db: ReturnType<typeof getDb>,
@@ -24,7 +26,10 @@ async function checkFormAccess(
   // Check if user is admin
   if (roles.includes('admin') || roles.includes('Admin')) return true;
 
-  // Check ACL entries
+  // Draft forms: only owner and admin can access
+  if (!form.isPublished) return false;
+
+  // Public forms: check ACL entries
   const principalIds = [userId, ...roles].filter(Boolean);
   if (principalIds.length === 0) return false;
 

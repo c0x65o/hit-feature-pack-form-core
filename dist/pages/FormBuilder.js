@@ -30,7 +30,6 @@ export function FormBuilder({ id, onNavigate }) {
     const [name, setName] = useState('');
     const [slug, setSlug] = useState('');
     const [description, setDescription] = useState('');
-    const [scope, setScope] = useState('private');
     // Nav config
     const [navShow, setNavShow] = useState(true);
     const [navPlacement, setNavPlacement] = useState('under_forms');
@@ -78,7 +77,6 @@ export function FormBuilder({ id, onNavigate }) {
             setName(form.name);
             setSlug(form.slug);
             setDescription(form.description || '');
-            setScope(form.scope);
             setNavShow(form.navShow ?? true);
             // Determine placement from navParentPath
             if (form.navParentPath) {
@@ -149,7 +147,6 @@ export function FormBuilder({ id, onNavigate }) {
                     name: name.trim(),
                     slug: slug.trim() || slugify(name),
                     description: description.trim() || undefined,
-                    scope,
                     navShow,
                     navPlacement: navPlacement === 'custom' ? 'under_forms' : navPlacement,
                     navGroup,
@@ -172,7 +169,6 @@ export function FormBuilder({ id, onNavigate }) {
             await saveForm(id, {
                 name: name.trim(),
                 description: description.trim() || undefined,
-                scope,
                 navShow,
                 navPlacement: navPlacement === 'custom' ? 'under_forms' : navPlacement,
                 navGroup,
@@ -500,6 +496,7 @@ export function FormBuilder({ id, onNavigate }) {
                                                 description: viewBuilderDescription.trim() || undefined,
                                                 filters: viewBuilderFilters.filter((f) => f.field && f.operator),
                                                 isDefault: viewBuilderIsDefault,
+                                                isSystem: true, // FormBuilder creates system views visible to all users
                                             };
                                             if (editingView) {
                                                 await updateView(editingView.id, viewData);

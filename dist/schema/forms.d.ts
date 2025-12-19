@@ -60,18 +60,6 @@ export declare const forms: import("drizzle-orm/pg-core").PgTableWithColumns<{
             enumValues: [string, ...string[]];
             baseColumn: never;
         }, {}, {}>;
-        scope: import("drizzle-orm/pg-core").PgColumn<{
-            name: "scope";
-            tableName: "forms";
-            dataType: "string";
-            columnType: "PgVarchar";
-            data: string;
-            driverParam: string;
-            notNull: true;
-            hasDefault: true;
-            enumValues: [string, ...string[]];
-            baseColumn: never;
-        }, {}, {}>;
         isPublished: import("drizzle-orm/pg-core").PgColumn<{
             name: "is_published";
             tableName: "forms";

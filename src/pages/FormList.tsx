@@ -26,7 +26,6 @@ export function FormList({ onNavigate }: Props) {
       id: f.id,
       name: f.name,
       slug: f.slug,
-      scope: f.scope,
       isPublished: f.isPublished,
       updatedAt: f.updatedAt,
     }));
@@ -72,12 +71,6 @@ export function FormList({ onNavigate }: Props) {
               ),
             },
             { key: 'slug', label: 'Slug', sortable: true },
-            {
-              key: 'scope',
-              label: 'Scope',
-              sortable: true,
-              render: (v: unknown) => String(v),
-            },
             {
               key: 'isPublished',
               label: 'Published',

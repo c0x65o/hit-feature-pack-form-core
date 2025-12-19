@@ -1,9 +1,9 @@
 // src/server/api/forms.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { forms, formVersions } from '@/lib/feature-pack-schemas';
-import { and, asc, desc, eq, like, or, sql, type AnyColumn } from 'drizzle-orm';
-import { getUserId } from '../auth';
+import { forms, formVersions, formsAcls } from '@/lib/feature-pack-schemas';
+import { and, asc, desc, eq, like, or, sql, type AnyColumn, inArray } from 'drizzle-orm';
+import { extractUserFromRequest, getUserId } from '../auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,16 +29,35 @@ export async function GET(request: NextRequest) {
     // Search
     const search = searchParams.get('search') || '';
 
-    const userId = getUserId(request);
-    if (!userId) {
+    const user = extractUserFromRequest(request);
+    if (!user?.sub) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = user.sub;
+    const roles = user.roles || [];
 
-    // Build conditions - user can see their own forms + published project-scope forms
+    // Get forms where user has ACL access (for published forms)
+    const principalIds: string[] = [userId, ...roles].filter((id): id is string => Boolean(id));
+    const aclFormIds: string[] = [];
+    if (principalIds.length > 0) {
+      const aclEntries = await db
+        .select({ formId: formsAcls.formId })
+        .from(formsAcls)
+        .where(
+          or(...principalIds.map((id: string) => eq(formsAcls.principalId, id)))!
+        );
+      const formIds = aclEntries.map((e: { formId: string }) => e.formId);
+      aclFormIds.push(...Array.from(new Set<string>(formIds)));
+    }
+
+    // Build conditions - user can see their own forms + published forms with ACL access
     const conditions = [
       or(
         eq(forms.ownerUserId, userId),
-        and(eq(forms.isPublished, true), eq(forms.scope, 'project'))
+        and(
+          eq(forms.isPublished, true),
+          aclFormIds.length > 0 ? inArray(forms.id, aclFormIds) : sql`false`
+        )
       )!
     ];
 
@@ -125,7 +144,6 @@ export async function POST(request: NextRequest) {
       name: body.name,
       slug: slug,
       description: body.description || null,
-      scope: body.scope || 'private',
       ownerUserId: userId,
       // Navigation config
       navShow: body.navShow ?? true,

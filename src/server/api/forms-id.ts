@@ -7,7 +7,9 @@ import { extractUserFromRequest, getUserId } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
 
 /**
- * Check if user can access a form (owner, admin, or has ACL entry)
+ * Check if user can access a form
+ * Draft (isPublished=false): only owner and admins can see
+ * Public (isPublished=true): owner, admins, and users with ACL entries can see
  */
 async function canAccessForm(
   db: ReturnType<typeof getDb>,
@@ -23,7 +25,10 @@ async function canAccessForm(
   // Check if user is admin
   if (roles.includes('admin') || roles.includes('Admin')) return true;
 
-  // Check ACL entries (user email, groups, roles)
+  // Draft forms: only owner and admin can access
+  if (!form.isPublished) return false;
+
+  // Public forms: check ACL entries (user email, groups, roles)
   const principalIds = [userId, ...roles].filter(Boolean);
   if (principalIds.length === 0) return false;
 
@@ -191,7 +196,6 @@ export async function PUT(request: NextRequest) {
     const formUpdate: Record<string, unknown> = { updatedAt: new Date() };
     if (body.name !== undefined) formUpdate.name = body.name;
     if (body.description !== undefined) formUpdate.description = body.description;
-    if (body.scope !== undefined) formUpdate.scope = body.scope;
     if (body.navShow !== undefined) formUpdate.navShow = body.navShow;
     if (body.navPlacement !== undefined) formUpdate.navPlacement = body.navPlacement;
     if (body.navGroup !== undefined) formUpdate.navGroup = body.navGroup;

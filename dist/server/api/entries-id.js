@@ -6,7 +6,9 @@ import { and, eq, or, sql } from 'drizzle-orm';
 import { extractUserFromRequest } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
 /**
- * Check if user can access a form (owner, admin, or has ACL entry with required permission)
+ * Check if user can access a form
+ * Draft (isPublished=false): only owner and admins can see
+ * Public (isPublished=true): owner, admins, and users with ACL entries can see
  */
 async function checkFormAccess(db, formId, userId, roles = [], requiredPermission) {
     const [form] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
@@ -16,6 +18,10 @@ async function checkFormAccess(db, formId, userId, roles = [], requiredPermissio
         return true;
     if (roles.includes('admin') || roles.includes('Admin'))
         return true;
+    // Draft forms: only owner and admin can access
+    if (!form.isPublished)
+        return false;
+    // Public forms: check ACL entries
     const principalIds = [userId, ...roles].filter(Boolean);
     if (principalIds.length === 0)
         return false;

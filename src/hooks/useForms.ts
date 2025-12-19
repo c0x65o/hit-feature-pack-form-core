@@ -50,7 +50,6 @@ export interface FormRecord {
   name: string;
   slug: string;
   description: string | null;
-  scope: FormScope;
   isPublished: boolean;
   navShow: boolean;
   navPlacement: NavPlacement;
@@ -178,7 +177,6 @@ export function useFormMutations() {
     name: string;
     slug?: string;
     description?: string;
-    scope?: FormScope;
     navShow?: boolean;
     navPlacement?: NavPlacement;
     navGroup?: string;
@@ -202,7 +200,7 @@ export function useFormMutations() {
     }
   };
 
-  const updateForm = async (id: string, payload: Partial<{ name: string; description: string; scope: FormScope }>) => {
+  const updateForm = async (id: string, payload: Partial<{ name: string; description: string }>) => {
     setLoading(true);
     setError(null);
     try {
@@ -282,7 +280,6 @@ export function useFormMutations() {
       payload: Partial<{
         name: string;
         description: string;
-        scope: FormScope;
         navShow: boolean;
         navPlacement: NavPlacement;
         navGroup: string;

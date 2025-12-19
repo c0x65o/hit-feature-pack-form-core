@@ -1,4 +1,3 @@
-export type FormScope = 'private' | 'project';
 export type NavPlacement = 'under_forms' | 'top_level';
 export type FieldType = 'text' | 'url' | 'textarea' | 'number' | 'date' | 'datetime' | 'select' | 'checkbox' | 'reference' | 'entity_reference';
 export interface FormRecord {
@@ -6,7 +5,6 @@ export interface FormRecord {
     name: string;
     slug: string;
     description: string | null;
-    scope: FormScope;
     isPublished: boolean;
     navShow: boolean;
     navPlacement: NavPlacement;
@@ -80,7 +78,6 @@ export declare function useFormMutations(): {
         name: string;
         slug?: string;
         description?: string;
-        scope?: FormScope;
         navShow?: boolean;
         navPlacement?: NavPlacement;
         navGroup?: string;
@@ -92,7 +89,6 @@ export declare function useFormMutations(): {
     updateForm: (id: string, payload: Partial<{
         name: string;
         description: string;
-        scope: FormScope;
     }>) => Promise<FormRecord>;
     deleteForm: (id: string) => Promise<void>;
     publishForm: (id: string) => Promise<{
@@ -104,7 +100,6 @@ export declare function useFormMutations(): {
     saveForm: (id: string, payload: Partial<{
         name: string;
         description: string;
-        scope: FormScope;
         navShow: boolean;
         navPlacement: NavPlacement;
         navGroup: string;
