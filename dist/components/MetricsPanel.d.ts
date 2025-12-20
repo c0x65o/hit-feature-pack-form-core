@@ -1,5 +1,5 @@
 type Bucket = 'none' | 'hour' | 'day' | 'week' | 'month';
-type Agg = 'sum' | 'avg' | 'min' | 'max' | 'count';
+type Agg = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'last';
 export type MetricsViewMetadata = {
     panels?: Array<{
         title?: string;

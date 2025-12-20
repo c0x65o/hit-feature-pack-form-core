@@ -944,6 +944,7 @@ export function FormBuilder({ id, onNavigate }: Props) {
                         setMetricsConfig(next);
                       }}
                       options={[
+                        { value: 'last', label: 'Last (Latest)' },
                         { value: 'sum', label: 'Sum' },
                         { value: 'avg', label: 'Average' },
                         { value: 'max', label: 'Max' },

@@ -54,6 +54,7 @@ export function LinkedEntityTabs({ entity, overview, overviewLabel = 'Overview',
     const { Tabs, Card, DataTable } = useUi();
     const { items: linkedForms, loading: formsLoading } = useLinkedForms(entity);
     const [activeTab, setActiveTab] = useState('overview');
+    const [mode, setMode] = useState('list');
     const [page, setPage] = useState(1);
     const [viewFilters, setViewFilters] = useState([]);
     const visibleLinkedForms = useMemo(() => {
@@ -79,6 +80,7 @@ export function LinkedEntityTabs({ entity, overview, overviewLabel = 'Overview',
     }, [overviewLabel, visibleLinkedForms]);
     const handleTabChange = useCallback((tabId) => {
         setActiveTab(tabId);
+        setMode('list');
         setPage(1);
         setViewFilters([]);
     }, [setActiveTab]);
@@ -159,9 +161,13 @@ export function LinkedEntityTabs({ entity, overview, overviewLabel = 'Overview',
         const m = entriesData?.listConfig?.metricsConfig;
         return m && typeof m === 'object' ? m : null;
     }, [entriesData?.listConfig]);
-    return (_jsxs("div", { children: [tabs.length > 0 && (_jsx("div", { style: { marginBottom: '24px' }, children: _jsx(Tabs, { tabs: tabs, value: activeTab, onValueChange: handleTabChange }) })), activeTab === 'overview' ? (_jsx(_Fragment, { children: overview })) : (_jsx(Card, { title: selectedFormInfo?.formName || 'Linked Entries', children: !selectedFormInfo ? (_jsx("div", { style: { textAlign: 'center', padding: '24px', color: 'var(--hit-muted-foreground, #64748b)' }, children: "Loading form information..." })) : entriesLoading ? (_jsx("div", { style: { textAlign: 'center', padding: '24px', color: 'var(--hit-muted-foreground, #64748b)' }, children: "Loading entries..." })) : (entriesData?.items || []).length === 0 ? (_jsxs("div", { style: { textAlign: 'center', padding: '24px', color: 'var(--hit-muted-foreground, #64748b)' }, children: ["No entries found for this ", entity.kind, "."] })) : (_jsxs(_Fragment, { children: [metricsMeta && (_jsx(MetricsPanel, { entityKind: entity.kind, entityId: entity.id, metrics: metricsMeta })), _jsx(DataTable, { columns: columns, data: filteredRows, emptyMessage: "No entries found", loading: entriesLoading || formsLoading, searchable: true, pageSize: pageSize, page: page, total: entriesData?.pagination.total, onPageChange: setPage, manualPagination: true, onRefresh: refreshEntries, refreshing: entriesLoading, tableId: `forms.entries.${selectedFormInfo.formId}`, enableViews: true, onViewFiltersChange: (filters) => setViewFilters(filters), onRowClick: (row) => {
+    const hasMetrics = Boolean(Array.isArray(metricsMeta?.panels) && metricsMeta.panels.length > 0);
+    return (_jsxs("div", { children: [tabs.length > 0 && (_jsx("div", { style: { marginBottom: '24px' }, children: _jsx(Tabs, { tabs: tabs, value: activeTab, onValueChange: handleTabChange }) })), activeTab === 'overview' ? (_jsx(_Fragment, { children: overview })) : (_jsx(Card, { title: selectedFormInfo?.formName || 'Linked Entries', children: !selectedFormInfo ? (_jsx("div", { style: { textAlign: 'center', padding: '24px', color: 'var(--hit-muted-foreground, #64748b)' }, children: "Loading form information..." })) : entriesLoading ? (_jsx("div", { style: { textAlign: 'center', padding: '24px', color: 'var(--hit-muted-foreground, #64748b)' }, children: "Loading entries..." })) : (entriesData?.items || []).length === 0 ? (_jsxs("div", { style: { textAlign: 'center', padding: '24px', color: 'var(--hit-muted-foreground, #64748b)' }, children: ["No entries found for this ", entity.kind, "."] })) : (_jsxs(_Fragment, { children: [hasMetrics && (_jsx("div", { style: { marginBottom: 16 }, children: _jsx(Tabs, { tabs: [
+                                    { id: 'list', label: 'List', content: null },
+                                    { id: 'metrics', label: 'Metrics', content: null },
+                                ], value: mode, onValueChange: (v) => setMode(v) }) })), hasMetrics && mode === 'metrics' ? (_jsx(MetricsPanel, { entityKind: entity.kind, entityId: entity.id, metrics: metricsMeta })) : (_jsx(DataTable, { columns: columns, data: filteredRows, emptyMessage: "No entries found", loading: entriesLoading || formsLoading, searchable: true, pageSize: pageSize, page: page, total: entriesData?.pagination.total, onPageChange: setPage, manualPagination: true, onRefresh: refreshEntries, refreshing: entriesLoading, tableId: `forms.entries.${selectedFormInfo.formId}`, enableViews: true, onViewFiltersChange: (filters) => setViewFilters(filters), onRowClick: (row) => {
                                 const href = rowHref({ formId: selectedFormInfo.formId, entryId: String(row.id) });
                                 safeNavigate(href, onNavigate);
-                            } })] })) }))] }));
+                            } }))] })) }))] }));
 }
 //# sourceMappingURL=LinkedEntityTabs.js.map
