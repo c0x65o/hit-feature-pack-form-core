@@ -85,6 +85,10 @@ export function FormBuilder({ id, onNavigate }: Props) {
       bucket: string;
       days: number;
       cumulative?: 'range' | 'all_time';
+      groupKey?: string;
+      groupLabel?: string;
+      groupIcon?: string;
+      groupPrimary?: boolean;
     }>
   >([]);
   const [metricsCatalog, setMetricsCatalog] = useState<Record<string, any>>({});
@@ -1000,6 +1004,49 @@ export function FormBuilder({ id, onNavigate }: Props) {
                         setMetricsConfig(next);
                       }}
                       placeholder="90"
+                    />
+                    <Input
+                      label="Group Key (optional)"
+                      value={(panel as any).groupKey || ''}
+                      onChange={(v: string) => {
+                        const next = [...metricsConfig];
+                        next[idx] = { ...next[idx], groupKey: v || undefined };
+                        setMetricsConfig(next);
+                      }}
+                      placeholder="e.g., discord"
+                    />
+                    <Input
+                      label="Group Label (optional)"
+                      value={(panel as any).groupLabel || ''}
+                      onChange={(v: string) => {
+                        const next = [...metricsConfig];
+                        next[idx] = { ...next[idx], groupLabel: v || undefined };
+                        setMetricsConfig(next);
+                      }}
+                      placeholder="e.g., Discord"
+                    />
+                    <Input
+                      label="Group Icon (optional)"
+                      value={(panel as any).groupIcon || ''}
+                      onChange={(v: string) => {
+                        const next = [...metricsConfig];
+                        next[idx] = { ...next[idx], groupIcon: v || undefined };
+                        setMetricsConfig(next);
+                      }}
+                      placeholder='e.g., "Users", "Heart"'
+                    />
+                    <Select
+                      label="Primary in Group?"
+                      value={String(Boolean((panel as any).groupPrimary))}
+                      onChange={(v: string) => {
+                        const next = [...metricsConfig];
+                        next[idx] = { ...next[idx], groupPrimary: v === 'true' };
+                        setMetricsConfig(next);
+                      }}
+                      options={[
+                        { value: 'false', label: 'No' },
+                        { value: 'true', label: 'Yes' },
+                      ]}
                     />
                   </div>
                   {metricDef && (

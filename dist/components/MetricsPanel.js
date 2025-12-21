@@ -2,6 +2,8 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useMemo, useState } from 'react';
 import { useUi } from '@hit/ui-kit';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer, } from 'recharts';
 function getAuthHeaders() {
     if (typeof window === 'undefined')
@@ -11,6 +13,20 @@ function getAuthHeaders() {
 }
 function toDateInput(d) {
     return d.toISOString();
+}
+function toPascal(s) {
+    return String(s || '')
+        .trim()
+        .replace(/[-_\s]+(.)?/g, (_, c) => (c ? String(c).toUpperCase() : ''))
+        .replace(/^(.)/, (m) => m.toUpperCase());
+}
+function resolveLucideIcon(name) {
+    const n = String(name || '').trim();
+    if (!n)
+        return null;
+    const key = toPascal(n);
+    const Comp = LucideIcons[key];
+    return Comp || null;
 }
 function formatValue(value, unit) {
     if (!Number.isFinite(value))
@@ -77,11 +93,103 @@ function computeRange(preset, customStart, customEnd) {
     }
     return { start, end };
 }
+function GroupCurrentValue(props) {
+    const [value, setValue] = useState(null);
+    useEffect(() => {
+        let cancelled = false;
+        async function run() {
+            const end = props.end;
+            const ids = props.entityIds;
+            if (!end || !props.metricKey || ids.length === 0) {
+                if (!cancelled)
+                    setValue(null);
+                return;
+            }
+            try {
+                const res = await fetch('/api/metrics/query', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({
+                        metricKey: props.metricKey,
+                        bucket: 'none',
+                        agg: props.agg || 'last',
+                        end: toDateInput(end),
+                        entityKind: props.entityKind,
+                        entityIds: ids,
+                    }),
+                });
+                if (!res.ok) {
+                    if (!cancelled)
+                        setValue(null);
+                    return;
+                }
+                const json = await res.json().catch(() => null);
+                const v = Array.isArray(json?.data) && json.data[0]?.value != null ? Number(json.data[0].value) : null;
+                if (!cancelled)
+                    setValue(Number.isFinite(v) ? v : null);
+            }
+            catch {
+                if (!cancelled)
+                    setValue(null);
+            }
+        }
+        run();
+        return () => {
+            cancelled = true;
+        };
+    }, [props.entityKind, JSON.stringify(props.entityIds), props.metricKey, props.end?.toISOString(), props.agg]);
+    if (value === null)
+        return _jsx("span", { className: "text-sm text-muted-foreground", children: "\u2014" });
+    return _jsx("span", { className: "text-sm font-medium", children: formatValue(value, props.unit) });
+}
 export function MetricsPanel(props) {
     const { Card, Select, Button, Alert } = useUi();
     const panels = Array.isArray(props.metrics?.panels) ? props.metrics.panels : [];
     if (panels.length === 0)
         return null;
+    const grouped = useMemo(() => {
+        const groups = new Map();
+        const ungrouped = [];
+        for (const p of panels) {
+            const gk = typeof p.groupKey === 'string' ? String(p.groupKey).trim() : '';
+            if (!gk) {
+                ungrouped.push(p);
+                continue;
+            }
+            const label = typeof p.groupLabel === 'string' && String(p.groupLabel).trim()
+                ? String(p.groupLabel).trim()
+                : gk;
+            const icon = typeof p.groupIcon === 'string' ? String(p.groupIcon).trim() : '';
+            const existing = groups.get(gk) || { key: gk, label, icon: icon || undefined, panels: [] };
+            // Prefer the first non-empty label/icon we see for the group
+            if (!existing.label && label)
+                existing.label = label;
+            if (!existing.icon && icon)
+                existing.icon = icon;
+            existing.panels.push(p);
+            groups.set(gk, existing);
+        }
+        const orderedGroups = Array.from(groups.values());
+        // Preserve panel order as much as possible by sorting groups by first panel index.
+        orderedGroups.sort((a, b) => {
+            const ai = panels.findIndex((p) => a.panels.includes(p));
+            const bi = panels.findIndex((p) => b.panels.includes(p));
+            return ai - bi;
+        });
+        return { ungrouped, groups: orderedGroups };
+    }, [panels]);
+    const [expandedGroups, setExpandedGroups] = useState(() => new Set());
+    const toggleGroup = (key) => {
+        setExpandedGroups((prev) => {
+            const next = new Set(prev);
+            if (next.has(key))
+                next.delete(key);
+            else
+                next.add(key);
+            return next;
+        });
+    };
     // Global time range selector (default 90d)
     const [preset, setPreset] = useState('90d');
     const [customStart, setCustomStart] = useState(() => {
@@ -139,7 +247,19 @@ export function MetricsPanel(props) {
                                             { value: '1y', label: '1y' },
                                             { value: 'all', label: 'All' },
                                             { value: 'custom', label: 'Custom' },
-                                        ] }), preset === 'custom' && (_jsxs("div", { className: "flex flex-col gap-2 sm:flex-row sm:items-end", children: [_jsxs("label", { className: "text-sm", children: [_jsx("div", { className: "mb-1 text-muted-foreground", children: "Start" }), _jsx("input", { className: "h-10 px-3 rounded-md border border-gray-300 bg-white text-sm", type: "date", value: customStart, onChange: (e) => setCustomStart(e.target.value) })] }), _jsxs("label", { className: "text-sm", children: [_jsx("div", { className: "mb-1 text-muted-foreground", children: "End" }), _jsx("input", { className: "h-10 px-3 rounded-md border border-gray-300 bg-white text-sm", type: "date", value: customEnd, onChange: (e) => setCustomEnd(e.target.value) })] }), _jsx(Button, { variant: "secondary", onClick: handleApplyCustom, children: "Apply" })] }))] })] }), customError && (_jsx("div", { className: "mt-3", children: _jsx(Alert, { variant: "error", title: "Range error", children: customError }) }))] }), panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${p.metricKey}-${idx}`)))] }));
+                                        ] }), preset === 'custom' && (_jsxs("div", { className: "flex flex-col gap-2 sm:flex-row sm:items-end", children: [_jsxs("label", { className: "text-sm", children: [_jsx("div", { className: "mb-1 text-muted-foreground", children: "Start" }), _jsx("input", { className: "h-10 px-3 rounded-md border border-gray-300 bg-white text-sm", type: "date", value: customStart, onChange: (e) => setCustomStart(e.target.value) })] }), _jsxs("label", { className: "text-sm", children: [_jsx("div", { className: "mb-1 text-muted-foreground", children: "End" }), _jsx("input", { className: "h-10 px-3 rounded-md border border-gray-300 bg-white text-sm", type: "date", value: customEnd, onChange: (e) => setCustomEnd(e.target.value) })] }), _jsx(Button, { variant: "secondary", onClick: handleApplyCustom, children: "Apply" })] }))] })] }), customError && (_jsx("div", { className: "mt-3", children: _jsx(Alert, { variant: "error", title: "Range error", children: customError }) }))] }), grouped.ungrouped.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${p.metricKey}-${idx}`))), grouped.groups.map((g) => {
+                const isOpen = expandedGroups.has(g.key);
+                const Icon = resolveLucideIcon(g.icon);
+                const primary = g.panels.find((p) => Boolean(p.groupPrimary)) ||
+                    g.panels.find((p) => (p.agg || 'sum') === 'last') ||
+                    g.panels[0];
+                const chevron = isOpen ? _jsx(ChevronDown, { size: 16 }) : _jsx(ChevronRight, { size: 16 });
+                return (_jsxs(Card, { children: [_jsxs("button", { type: "button", className: "w-full flex items-center justify-between gap-3 text-left", onClick: () => toggleGroup(g.key), children: [_jsxs("div", { className: "flex items-center gap-2 min-w-0", children: [chevron, Icon ? _jsx(Icon, { size: 16, className: "text-muted-foreground" }) : null, _jsxs("div", { className: "min-w-0", children: [_jsx("div", { className: "font-semibold truncate", children: g.label }), _jsxs("div", { className: "text-xs text-muted-foreground", children: [g.panels.length, " metric", g.panels.length === 1 ? '' : 's'] })] })] }), _jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: (Array.isArray(props.entityIds) && props.entityIds.length > 0
+                                        ? props.entityIds
+                                        : props.entityId
+                                            ? [props.entityId]
+                                            : []), metricKey: primary.metricKey, end: range?.end, unit: catalogByKey[primary.metricKey]?.unit, agg: (primary.agg || 'last') })] }), isOpen ? (_jsx("div", { className: "mt-4 space-y-4", children: g.panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${g.key}.${p.metricKey}.${idx}`))) })) : null] }, `group.${g.key}`));
+            })] }));
 }
 function MetricsPanelItem(props) {
     const { Card, Alert } = useUi();

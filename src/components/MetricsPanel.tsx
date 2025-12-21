@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useUi } from '@hit/ui-kit';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -23,6 +25,13 @@ export type MetricsViewMetadata = {
     metricKey: string;
     bucket?: Bucket;
     agg?: Agg;
+    /** Optional grouping in the UI (collapsible sections). */
+    groupKey?: string;
+    groupLabel?: string;
+    /** Lucide icon name, e.g. "Users", "Heart", "DollarSign". */
+    groupIcon?: string;
+    /** If true, this panel drives the group's header "current" value. */
+    groupPrimary?: boolean;
     /**
      * If set, display as a cumulative running total:
      * - range: starts at 0 at the beginning of the selected range
@@ -55,6 +64,21 @@ type MetricCatalogItem = {
   label?: string;
   unit?: string; // e.g. usd, count
 };
+
+function toPascal(s: string): string {
+  return String(s || '')
+    .trim()
+    .replace(/[-_\s]+(.)?/g, (_, c) => (c ? String(c).toUpperCase() : ''))
+    .replace(/^(.)/, (m) => m.toUpperCase());
+}
+
+function resolveLucideIcon(name?: string) {
+  const n = String(name || '').trim();
+  if (!n) return null;
+  const key = toPascal(n);
+  const Comp = (LucideIcons as unknown as Record<string, React.ComponentType<{ size?: number; className?: string }>>)[key];
+  return Comp || null;
+}
 
 function formatValue(value: number, unit: string | undefined): string {
   if (!Number.isFinite(value)) return '';
@@ -117,6 +141,60 @@ function computeRange(preset: RangePreset, customStart?: string, customEnd?: str
   return { start, end };
 }
 
+function GroupCurrentValue(props: {
+  entityKind: string;
+  entityIds: string[];
+  metricKey: string;
+  end: Date | undefined;
+  unit?: string;
+  agg?: Agg;
+}) {
+  const [value, setValue] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      const end = props.end;
+      const ids = props.entityIds;
+      if (!end || !props.metricKey || ids.length === 0) {
+        if (!cancelled) setValue(null);
+        return;
+      }
+      try {
+        const res = await fetch('/api/metrics/query', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            metricKey: props.metricKey,
+            bucket: 'none',
+            agg: props.agg || 'last',
+            end: toDateInput(end),
+            entityKind: props.entityKind,
+            entityIds: ids,
+          }),
+        });
+        if (!res.ok) {
+          if (!cancelled) setValue(null);
+          return;
+        }
+        const json = await res.json().catch(() => null);
+        const v = Array.isArray(json?.data) && json.data[0]?.value != null ? Number(json.data[0].value) : null;
+        if (!cancelled) setValue(Number.isFinite(v as any) ? (v as number) : null);
+      } catch {
+        if (!cancelled) setValue(null);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [props.entityKind, JSON.stringify(props.entityIds), props.metricKey, props.end?.toISOString(), props.agg]);
+
+  if (value === null) return <span className="text-sm text-muted-foreground">—</span>;
+  return <span className="text-sm font-medium">{formatValue(value, props.unit)}</span>;
+}
+
 export function MetricsPanel(props: {
   entityKind: string;
   entityId?: string;
@@ -127,6 +205,55 @@ export function MetricsPanel(props: {
 
   const panels = Array.isArray(props.metrics?.panels) ? props.metrics.panels : [];
   if (panels.length === 0) return null;
+
+  const grouped = useMemo(() => {
+    const groups = new Map<
+      string,
+      { key: string; label: string; icon?: string; panels: Array<(typeof panels)[number]> }
+    >();
+    const ungrouped: Array<(typeof panels)[number]> = [];
+
+    for (const p of panels) {
+      const gk = typeof (p as any).groupKey === 'string' ? String((p as any).groupKey).trim() : '';
+      if (!gk) {
+        ungrouped.push(p);
+        continue;
+      }
+      const label =
+        typeof (p as any).groupLabel === 'string' && String((p as any).groupLabel).trim()
+          ? String((p as any).groupLabel).trim()
+          : gk;
+      const icon = typeof (p as any).groupIcon === 'string' ? String((p as any).groupIcon).trim() : '';
+
+      const existing = groups.get(gk) || { key: gk, label, icon: icon || undefined, panels: [] as any[] };
+      // Prefer the first non-empty label/icon we see for the group
+      if (!existing.label && label) existing.label = label;
+      if (!existing.icon && icon) existing.icon = icon;
+      existing.panels.push(p);
+      groups.set(gk, existing);
+    }
+
+    const orderedGroups = Array.from(groups.values());
+    // Preserve panel order as much as possible by sorting groups by first panel index.
+    orderedGroups.sort((a, b) => {
+      const ai = panels.findIndex((p) => a.panels.includes(p));
+      const bi = panels.findIndex((p) => b.panels.includes(p));
+      return ai - bi;
+    });
+
+    return { ungrouped, groups: orderedGroups };
+  }, [panels]);
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   // Global time range selector (default 90d)
   const [preset, setPreset] = useState<RangePreset>('90d');
@@ -234,7 +361,8 @@ export function MetricsPanel(props: {
         )}
       </Card>
 
-      {panels.map((p, idx) => (
+      {/* Ungrouped panels render as-is */}
+      {grouped.ungrouped.map((p, idx) => (
         <MetricsPanelItem
           key={`${p.metricKey}-${idx}`}
           entityKind={props.entityKind}
@@ -245,6 +373,64 @@ export function MetricsPanel(props: {
           unit={catalogByKey[p.metricKey]?.unit}
         />
       ))}
+
+      {/* Grouped panels render as collapsible sections; charts mount only when expanded */}
+      {grouped.groups.map((g) => {
+        const isOpen = expandedGroups.has(g.key);
+        const Icon = resolveLucideIcon(g.icon);
+        const primary =
+          g.panels.find((p: any) => Boolean(p.groupPrimary)) ||
+          g.panels.find((p) => (p.agg || 'sum') === 'last') ||
+          g.panels[0];
+        const chevron = isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />;
+
+        return (
+          <Card key={`group.${g.key}`}>
+            <button
+              type="button"
+              className="w-full flex items-center justify-between gap-3 text-left"
+              onClick={() => toggleGroup(g.key)}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {chevron}
+                {Icon ? <Icon size={16} className="text-muted-foreground" /> : null}
+                <div className="min-w-0">
+                  <div className="font-semibold truncate">{g.label}</div>
+                  <div className="text-xs text-muted-foreground">{g.panels.length} metric{g.panels.length === 1 ? '' : 's'}</div>
+                </div>
+              </div>
+              <GroupCurrentValue
+                entityKind={props.entityKind}
+                entityIds={(Array.isArray(props.entityIds) && props.entityIds.length > 0
+                  ? props.entityIds
+                  : props.entityId
+                    ? [props.entityId]
+                    : []) as string[]}
+                metricKey={primary.metricKey}
+                end={range?.end}
+                unit={catalogByKey[primary.metricKey]?.unit}
+                agg={(primary.agg || 'last') as any}
+              />
+            </button>
+
+            {isOpen ? (
+              <div className="mt-4 space-y-4">
+                {g.panels.map((p, idx) => (
+                  <MetricsPanelItem
+                    key={`${g.key}.${p.metricKey}.${idx}`}
+                    entityKind={props.entityKind}
+                    entityId={props.entityId}
+                    entityIds={props.entityIds}
+                    panel={p}
+                    range={range}
+                    unit={catalogByKey[p.metricKey]?.unit}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </Card>
+        );
+      })}
     </div>
   );
 }

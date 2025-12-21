@@ -6,6 +6,13 @@ export type MetricsViewMetadata = {
         metricKey: string;
         bucket?: Bucket;
         agg?: Agg;
+        /** Optional grouping in the UI (collapsible sections). */
+        groupKey?: string;
+        groupLabel?: string;
+        /** Lucide icon name, e.g. "Users", "Heart", "DollarSign". */
+        groupIcon?: string;
+        /** If true, this panel drives the group's header "current" value. */
+        groupPrimary?: boolean;
         /**
          * If set, display as a cumulative running total:
          * - range: starts at 0 at the beginning of the selected range

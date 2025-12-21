@@ -499,7 +499,26 @@ export function FormBuilder({ id, onNavigate }) {
                                                         const next = [...metricsConfig];
                                                         next[idx] = { ...next[idx], days: Number(v) || 90 };
                                                         setMetricsConfig(next);
-                                                    }, placeholder: "90" })] }), metricDef && (_jsx("div", { className: "text-xs text-gray-500", children: metricDef.description || `${metricDef.label} (${metricDef.unit})` }))] }, idx));
+                                                    }, placeholder: "90" }), _jsx(Input, { label: "Group Key (optional)", value: panel.groupKey || '', onChange: (v) => {
+                                                        const next = [...metricsConfig];
+                                                        next[idx] = { ...next[idx], groupKey: v || undefined };
+                                                        setMetricsConfig(next);
+                                                    }, placeholder: "e.g., discord" }), _jsx(Input, { label: "Group Label (optional)", value: panel.groupLabel || '', onChange: (v) => {
+                                                        const next = [...metricsConfig];
+                                                        next[idx] = { ...next[idx], groupLabel: v || undefined };
+                                                        setMetricsConfig(next);
+                                                    }, placeholder: "e.g., Discord" }), _jsx(Input, { label: "Group Icon (optional)", value: panel.groupIcon || '', onChange: (v) => {
+                                                        const next = [...metricsConfig];
+                                                        next[idx] = { ...next[idx], groupIcon: v || undefined };
+                                                        setMetricsConfig(next);
+                                                    }, placeholder: 'e.g., "Users", "Heart"' }), _jsx(Select, { label: "Primary in Group?", value: String(Boolean(panel.groupPrimary)), onChange: (v) => {
+                                                        const next = [...metricsConfig];
+                                                        next[idx] = { ...next[idx], groupPrimary: v === 'true' };
+                                                        setMetricsConfig(next);
+                                                    }, options: [
+                                                        { value: 'false', label: 'No' },
+                                                        { value: 'true', label: 'Yes' },
+                                                    ] })] }), metricDef && (_jsx("div", { className: "text-xs text-gray-500", children: metricDef.description || `${metricDef.label} (${metricDef.unit})` }))] }, idx));
                             })] })] })), _jsxs(Modal, { open: showViewBuilder, onClose: () => {
                     setShowViewBuilder(false);
                     setEditingView(null);
