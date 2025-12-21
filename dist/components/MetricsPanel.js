@@ -95,6 +95,7 @@ function computeRange(preset, customStart, customEnd) {
 }
 function GroupCurrentValue(props) {
     const [value, setValue] = useState(null);
+    const [loading, setLoading] = useState(false);
     useEffect(() => {
         let cancelled = false;
         async function run() {
@@ -106,6 +107,8 @@ function GroupCurrentValue(props) {
                 return;
             }
             try {
+                if (!cancelled)
+                    setLoading(true);
                 const res = await fetch('/api/metrics/query', {
                     method: 'POST',
                     credentials: 'include',
@@ -133,15 +136,21 @@ function GroupCurrentValue(props) {
                 if (!cancelled)
                     setValue(null);
             }
+            finally {
+                if (!cancelled)
+                    setLoading(false);
+            }
         }
         run();
         return () => {
             cancelled = true;
         };
     }, [props.entityKind, JSON.stringify(props.entityIds), props.metricKey, props.end?.toISOString(), props.agg]);
+    if (loading)
+        return _jsx("span", { className: props.className || 'text-sm text-muted-foreground', children: "\u2026" });
     if (value === null)
-        return _jsx("span", { className: "text-sm text-muted-foreground", children: "\u2014" });
-    return _jsx("span", { className: "text-sm font-medium", children: formatValue(value, props.unit) });
+        return _jsx("span", { className: props.className || 'text-sm text-muted-foreground', children: props.placeholder || '—' });
+    return _jsx("span", { className: props.className || 'text-sm font-medium', children: formatValue(value, props.unit) });
 }
 export function MetricsPanel(props) {
     const { Card, Select, Button, Alert } = useUi();
@@ -253,12 +262,13 @@ export function MetricsPanel(props) {
                 const primary = g.panels.find((p) => Boolean(p.groupPrimary)) ||
                     g.panels.find((p) => (p.agg || 'sum') === 'last') ||
                     g.panels[0];
-                const chevron = isOpen ? _jsx(ChevronDown, { size: 16 }) : _jsx(ChevronRight, { size: 16 });
-                return (_jsxs(Card, { children: [_jsxs("button", { type: "button", className: "w-full flex items-center justify-between gap-3 text-left", onClick: () => toggleGroup(g.key), children: [_jsxs("div", { className: "flex items-center gap-2 min-w-0", children: [chevron, Icon ? _jsx(Icon, { size: 16, className: "text-muted-foreground" }) : null, _jsxs("div", { className: "min-w-0", children: [_jsx("div", { className: "font-semibold truncate", children: g.label }), _jsxs("div", { className: "text-xs text-muted-foreground", children: [g.panels.length, " metric", g.panels.length === 1 ? '' : 's'] })] })] }), _jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: (Array.isArray(props.entityIds) && props.entityIds.length > 0
-                                        ? props.entityIds
-                                        : props.entityId
-                                            ? [props.entityId]
-                                            : []), metricKey: primary.metricKey, end: range?.end, unit: catalogByKey[primary.metricKey]?.unit, agg: (primary.agg || 'last') })] }), isOpen ? (_jsx("div", { className: "mt-4 space-y-4", children: g.panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${g.key}.${p.metricKey}.${idx}`))) })) : null] }, `group.${g.key}`));
+                const chevron = isOpen ? _jsx(ChevronDown, { size: 18 }) : _jsx(ChevronRight, { size: 18 });
+                const primaryLabel = String(primary?.title || primary?.metricKey || 'Current');
+                return (_jsxs(Card, { children: [_jsxs("button", { type: "button", className: "w-full flex items-center justify-between gap-4 text-left", onClick: () => toggleGroup(g.key), children: [_jsxs("div", { className: "flex items-center gap-3 min-w-0", children: [_jsx("span", { className: "text-muted-foreground", children: chevron }), _jsx("div", { className: "h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0", children: Icon ? _jsx(Icon, { size: 18, className: "text-muted-foreground" }) : _jsx("span", { className: "text-xs text-muted-foreground", children: "\u2014" }) }), _jsxs("div", { className: "min-w-0", children: [_jsx("div", { className: "font-semibold truncate", children: g.label }), _jsxs("div", { className: "text-xs text-muted-foreground truncate", children: [primaryLabel, g.panels.length > 1 ? ` · ${g.panels.length} metrics` : ''] })] })] }), _jsx("div", { className: "flex items-center gap-3", children: _jsxs("div", { className: "text-right", children: [_jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: (Array.isArray(props.entityIds) && props.entityIds.length > 0
+                                                    ? props.entityIds
+                                                    : props.entityId
+                                                        ? [props.entityId]
+                                                        : []), metricKey: primary.metricKey, end: range?.end, unit: catalogByKey[primary.metricKey]?.unit, agg: (primary.agg || 'last'), className: "text-xl font-semibold leading-none", placeholder: "\u2014" }), _jsx("div", { className: "text-xs text-muted-foreground mt-1", children: "Current" })] }) })] }), isOpen ? (_jsx("div", { className: "mt-4 space-y-4", children: g.panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${g.key}.${p.metricKey}.${idx}`))) })) : null] }, `group.${g.key}`));
             })] }));
 }
 function MetricsPanelItem(props) {

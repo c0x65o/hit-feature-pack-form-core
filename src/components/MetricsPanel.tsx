@@ -148,8 +148,11 @@ function GroupCurrentValue(props: {
   end: Date | undefined;
   unit?: string;
   agg?: Agg;
+  className?: string;
+  placeholder?: string;
 }) {
   const [value, setValue] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +164,7 @@ function GroupCurrentValue(props: {
         return;
       }
       try {
+        if (!cancelled) setLoading(true);
         const res = await fetch('/api/metrics/query', {
           method: 'POST',
           credentials: 'include',
@@ -183,6 +187,8 @@ function GroupCurrentValue(props: {
         if (!cancelled) setValue(Number.isFinite(v as any) ? (v as number) : null);
       } catch {
         if (!cancelled) setValue(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
     run();
@@ -191,8 +197,9 @@ function GroupCurrentValue(props: {
     };
   }, [props.entityKind, JSON.stringify(props.entityIds), props.metricKey, props.end?.toISOString(), props.agg]);
 
-  if (value === null) return <span className="text-sm text-muted-foreground">—</span>;
-  return <span className="text-sm font-medium">{formatValue(value, props.unit)}</span>;
+  if (loading) return <span className={props.className || 'text-sm text-muted-foreground'}>…</span>;
+  if (value === null) return <span className={props.className || 'text-sm text-muted-foreground'}>{props.placeholder || '—'}</span>;
+  return <span className={props.className || 'text-sm font-medium'}>{formatValue(value, props.unit)}</span>;
 }
 
 export function MetricsPanel(props: {
@@ -382,35 +389,49 @@ export function MetricsPanel(props: {
           g.panels.find((p: any) => Boolean(p.groupPrimary)) ||
           g.panels.find((p) => (p.agg || 'sum') === 'last') ||
           g.panels[0];
-        const chevron = isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />;
+        const chevron = isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />;
+        const primaryLabel = String(primary?.title || primary?.metricKey || 'Current');
 
         return (
           <Card key={`group.${g.key}`}>
             <button
               type="button"
-              className="w-full flex items-center justify-between gap-3 text-left"
+              className="w-full flex items-center justify-between gap-4 text-left"
               onClick={() => toggleGroup(g.key)}
             >
-              <div className="flex items-center gap-2 min-w-0">
-                {chevron}
-                {Icon ? <Icon size={16} className="text-muted-foreground" /> : null}
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-muted-foreground">{chevron}</span>
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  {Icon ? <Icon size={18} className="text-muted-foreground" /> : <span className="text-xs text-muted-foreground">—</span>}
+                </div>
                 <div className="min-w-0">
                   <div className="font-semibold truncate">{g.label}</div>
-                  <div className="text-xs text-muted-foreground">{g.panels.length} metric{g.panels.length === 1 ? '' : 's'}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {primaryLabel}
+                    {g.panels.length > 1 ? ` · ${g.panels.length} metrics` : ''}
+                  </div>
                 </div>
               </div>
-              <GroupCurrentValue
-                entityKind={props.entityKind}
-                entityIds={(Array.isArray(props.entityIds) && props.entityIds.length > 0
-                  ? props.entityIds
-                  : props.entityId
-                    ? [props.entityId]
-                    : []) as string[]}
-                metricKey={primary.metricKey}
-                end={range?.end}
-                unit={catalogByKey[primary.metricKey]?.unit}
-                agg={(primary.agg || 'last') as any}
-              />
+
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <GroupCurrentValue
+                    entityKind={props.entityKind}
+                    entityIds={(Array.isArray(props.entityIds) && props.entityIds.length > 0
+                      ? props.entityIds
+                      : props.entityId
+                        ? [props.entityId]
+                        : []) as string[]}
+                    metricKey={primary.metricKey}
+                    end={range?.end}
+                    unit={catalogByKey[primary.metricKey]?.unit}
+                    agg={(primary.agg || 'last') as any}
+                    className="text-xl font-semibold leading-none"
+                    placeholder="—"
+                  />
+                  <div className="text-xs text-muted-foreground mt-1">Current</div>
+                </div>
+              </div>
             </button>
 
             {isOpen ? (
