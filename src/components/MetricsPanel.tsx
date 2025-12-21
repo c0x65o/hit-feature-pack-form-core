@@ -80,7 +80,7 @@ function resolveLucideIcon(name?: string) {
   return Comp || null;
 }
 
-const MAX_GROUP_HEADER_CHIPS = 2;
+const MAX_GROUP_HEADER_CHIPS = 3;
 
 function formatValue(value: number, unit: string | undefined): string {
   if (!Number.isFinite(value)) return '';
@@ -387,21 +387,22 @@ export function MetricsPanel(props: {
       {grouped.groups.map((g) => {
         const isOpen = expandedGroups.has(g.key);
         const Icon = resolveLucideIcon(g.icon);
-        const primary =
-          g.panels.find((p: any) => Boolean(p.groupPrimary)) ||
-          g.panels.find((p) => (p.agg || 'sum') === 'last') ||
-          g.panels[0];
         const chevron = isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />;
-        const primaryLabel = String(primary?.title || primary?.metricKey || 'Current');
         const groupEntityIds = (Array.isArray(props.entityIds) && props.entityIds.length > 0
           ? props.entityIds
           : props.entityId
             ? [props.entityId]
             : []) as string[];
 
-        const chipPanels = g.panels
-          .filter((p) => p !== primary)
-          .slice(0, Math.max(0, MAX_GROUP_HEADER_CHIPS - 1));
+        const orderedPanels = g.panels
+          .slice()
+          .sort((a: any, b: any) => (Boolean(b.groupPrimary) ? 1 : 0) - (Boolean(a.groupPrimary) ? 1 : 0));
+        const chipPanels = orderedPanels.slice(0, MAX_GROUP_HEADER_CHIPS);
+        const remainingCount = Math.max(0, g.panels.length - chipPanels.length);
+        const subtitleNames = orderedPanels
+          .slice(0, 2)
+          .map((p) => String(p.title || p.metricKey))
+          .filter(Boolean);
 
         return (
           <Card key={`group.${g.key}`}>
@@ -423,14 +424,14 @@ export function MetricsPanel(props: {
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
-                    {primaryLabel}
-                    {g.panels.length > 1 ? ` · ${g.panels.length} metrics` : ''}
+                    {subtitleNames.join(' · ')}
+                    {g.panels.length > 2 ? ` · +${g.panels.length - 2}` : ''}
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Mini stat pills (subtle, like old marketing) */}
+                {/* Metric list pills (name + current value), no special "Current" metric */}
                 <div className="hidden lg:flex items-center gap-2">
                   {chipPanels.map((p, idx) => (
                     <div key={`${g.key}.chip.${p.metricKey}.${idx}`} className="px-2 py-1 rounded-full bg-muted/50 text-xs flex items-center gap-2">
@@ -447,20 +448,9 @@ export function MetricsPanel(props: {
                       />
                     </div>
                   ))}
-                </div>
-
-                <div className="text-right">
-                  <GroupCurrentValue
-                    entityKind={props.entityKind}
-                    entityIds={groupEntityIds}
-                    metricKey={primary.metricKey}
-                    end={range?.end}
-                    unit={catalogByKey[primary.metricKey]?.unit}
-                    agg={(primary.agg || 'last') as any}
-                    className="text-xl font-semibold leading-none"
-                    placeholder="—"
-                  />
-                  <div className="text-xs text-muted-foreground mt-1">Current</div>
+                  {remainingCount > 0 ? (
+                    <span className="text-xs text-muted-foreground">+{remainingCount}</span>
+                  ) : null}
                 </div>
               </div>
             </button>
