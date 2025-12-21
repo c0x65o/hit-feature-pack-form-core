@@ -239,6 +239,7 @@ export function MetricsPanel(props: {
           key={`${p.metricKey}-${idx}`}
           entityKind={props.entityKind}
           entityId={props.entityId}
+          entityIds={props.entityIds}
           panel={p}
           range={range}
           unit={catalogByKey[p.metricKey]?.unit}
