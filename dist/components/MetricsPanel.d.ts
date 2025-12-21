@@ -11,6 +11,8 @@ export type MetricsViewMetadata = {
         groupLabel?: string;
         /** Lucide icon name, e.g. "Users", "Heart", "DollarSign". */
         groupIcon?: string;
+        /** Optional hex/rgb color for the group icon chip, e.g. "#5865F2" */
+        groupColor?: string;
         /** If true, this panel drives the group's header "current" value. */
         groupPrimary?: boolean;
         /**

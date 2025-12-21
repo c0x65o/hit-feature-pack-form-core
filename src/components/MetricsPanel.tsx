@@ -30,6 +30,8 @@ export type MetricsViewMetadata = {
     groupLabel?: string;
     /** Lucide icon name, e.g. "Users", "Heart", "DollarSign". */
     groupIcon?: string;
+    /** Optional hex/rgb color for the group icon chip, e.g. "#5865F2" */
+    groupColor?: string;
     /** If true, this panel drives the group's header "current" value. */
     groupPrimary?: boolean;
     /**
@@ -81,6 +83,16 @@ function resolveLucideIcon(name?: string) {
 }
 
 const MAX_GROUP_HEADER_CHIPS = 3;
+
+function normalizeCssColor(input?: string): string | null {
+  const s = String(input || '').trim();
+  if (!s) return null;
+  // Allow common safe formats. If it doesn't match, ignore (don't inject arbitrary CSS).
+  if (/^#[0-9a-fA-F]{3}$/.test(s) || /^#[0-9a-fA-F]{6}$/.test(s)) return s;
+  if (/^rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)$/.test(s)) return s;
+  if (/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*(0|0?\.\d+|1(\.0)?)\s*\)$/.test(s)) return s;
+  return null;
+}
 
 function formatValue(value: number, unit: string | undefined): string {
   if (!Number.isFinite(value)) return '';
@@ -218,7 +230,7 @@ export function MetricsPanel(props: {
   const grouped = useMemo(() => {
     const groups = new Map<
       string,
-      { key: string; label: string; icon?: string; panels: Array<(typeof panels)[number]> }
+      { key: string; label: string; icon?: string; color?: string; panels: Array<(typeof panels)[number]> }
     >();
     const ungrouped: Array<(typeof panels)[number]> = [];
 
@@ -233,11 +245,13 @@ export function MetricsPanel(props: {
           ? String((p as any).groupLabel).trim()
           : gk;
       const icon = typeof (p as any).groupIcon === 'string' ? String((p as any).groupIcon).trim() : '';
+      const color = typeof (p as any).groupColor === 'string' ? String((p as any).groupColor).trim() : '';
 
-      const existing = groups.get(gk) || { key: gk, label, icon: icon || undefined, panels: [] as any[] };
+      const existing = groups.get(gk) || { key: gk, label, icon: icon || undefined, color: color || undefined, panels: [] as any[] };
       // Prefer the first non-empty label/icon we see for the group
       if (!existing.label && label) existing.label = label;
       if (!existing.icon && icon) existing.icon = icon;
+      if (!existing.color && color) existing.color = color;
       existing.panels.push(p);
       groups.set(gk, existing);
     }
@@ -387,6 +401,7 @@ export function MetricsPanel(props: {
       {grouped.groups.map((g) => {
         const isOpen = expandedGroups.has(g.key);
         const Icon = resolveLucideIcon(g.icon);
+        const chipColor = normalizeCssColor((g as any).color);
         const chevron = isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />;
         const groupEntityIds = (Array.isArray(props.entityIds) && props.entityIds.length > 0
           ? props.entityIds
@@ -413,8 +428,21 @@ export function MetricsPanel(props: {
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-muted-foreground">{chevron}</span>
-                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                  {Icon ? <Icon size={18} className="text-muted-foreground" /> : <span className="text-xs text-muted-foreground">—</span>}
+                <div
+                  className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={
+                    chipColor
+                      ? { backgroundColor: `${chipColor}1A`, border: `1px solid ${chipColor}40` }
+                      : { backgroundColor: 'var(--hit-muted, rgba(148,163,184,0.18))' }
+                  }
+                >
+                  {Icon ? (
+                    <span style={chipColor ? { color: chipColor, display: 'inline-flex' } : { display: 'inline-flex' }}>
+                      <Icon size={18} className={chipColor ? undefined : 'text-muted-foreground'} />
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 min-w-0">

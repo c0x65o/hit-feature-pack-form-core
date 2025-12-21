@@ -29,6 +29,19 @@ function resolveLucideIcon(name) {
     return Comp || null;
 }
 const MAX_GROUP_HEADER_CHIPS = 3;
+function normalizeCssColor(input) {
+    const s = String(input || '').trim();
+    if (!s)
+        return null;
+    // Allow common safe formats. If it doesn't match, ignore (don't inject arbitrary CSS).
+    if (/^#[0-9a-fA-F]{3}$/.test(s) || /^#[0-9a-fA-F]{6}$/.test(s))
+        return s;
+    if (/^rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)$/.test(s))
+        return s;
+    if (/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*(0|0?\.\d+|1(\.0)?)\s*\)$/.test(s))
+        return s;
+    return null;
+}
 function formatValue(value, unit) {
     if (!Number.isFinite(value))
         return '';
@@ -171,12 +184,15 @@ export function MetricsPanel(props) {
                 ? String(p.groupLabel).trim()
                 : gk;
             const icon = typeof p.groupIcon === 'string' ? String(p.groupIcon).trim() : '';
-            const existing = groups.get(gk) || { key: gk, label, icon: icon || undefined, panels: [] };
+            const color = typeof p.groupColor === 'string' ? String(p.groupColor).trim() : '';
+            const existing = groups.get(gk) || { key: gk, label, icon: icon || undefined, color: color || undefined, panels: [] };
             // Prefer the first non-empty label/icon we see for the group
             if (!existing.label && label)
                 existing.label = label;
             if (!existing.icon && icon)
                 existing.icon = icon;
+            if (!existing.color && color)
+                existing.color = color;
             existing.panels.push(p);
             groups.set(gk, existing);
         }
@@ -260,6 +276,7 @@ export function MetricsPanel(props) {
                                         ] }), preset === 'custom' && (_jsxs("div", { className: "flex flex-col gap-2 sm:flex-row sm:items-end", children: [_jsxs("label", { className: "text-sm", children: [_jsx("div", { className: "mb-1 text-muted-foreground", children: "Start" }), _jsx("input", { className: "h-10 px-3 rounded-md border border-gray-300 bg-white text-sm", type: "date", value: customStart, onChange: (e) => setCustomStart(e.target.value) })] }), _jsxs("label", { className: "text-sm", children: [_jsx("div", { className: "mb-1 text-muted-foreground", children: "End" }), _jsx("input", { className: "h-10 px-3 rounded-md border border-gray-300 bg-white text-sm", type: "date", value: customEnd, onChange: (e) => setCustomEnd(e.target.value) })] }), _jsx(Button, { variant: "secondary", onClick: handleApplyCustom, children: "Apply" })] }))] })] }), customError && (_jsx("div", { className: "mt-3", children: _jsx(Alert, { variant: "error", title: "Range error", children: customError }) }))] }), grouped.ungrouped.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${p.metricKey}-${idx}`))), grouped.groups.map((g) => {
                 const isOpen = expandedGroups.has(g.key);
                 const Icon = resolveLucideIcon(g.icon);
+                const chipColor = normalizeCssColor(g.color);
                 const chevron = isOpen ? _jsx(ChevronDown, { size: 18 }) : _jsx(ChevronRight, { size: 18 });
                 const groupEntityIds = (Array.isArray(props.entityIds) && props.entityIds.length > 0
                     ? props.entityIds
@@ -275,7 +292,9 @@ export function MetricsPanel(props) {
                     .slice(0, 2)
                     .map((p) => String(p.title || p.metricKey))
                     .filter(Boolean);
-                return (_jsxs(Card, { children: [_jsxs("button", { type: "button", className: "w-full flex items-center justify-between gap-4 text-left", onClick: () => toggleGroup(g.key), children: [_jsxs("div", { className: "flex items-center gap-3 min-w-0", children: [_jsx("span", { className: "text-muted-foreground", children: chevron }), _jsx("div", { className: "h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0", children: Icon ? _jsx(Icon, { size: 18, className: "text-muted-foreground" }) : _jsx("span", { className: "text-xs text-muted-foreground", children: "\u2014" }) }), _jsxs("div", { className: "min-w-0", children: [_jsxs("div", { className: "flex items-center gap-2 min-w-0", children: [_jsx("div", { className: "font-semibold truncate", children: g.label }), _jsx("span", { className: "inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground shrink-0", children: g.panels.length })] }), _jsxs("div", { className: "text-xs text-muted-foreground truncate", children: [subtitleNames.join(' · '), g.panels.length > 2 ? ` · +${g.panels.length - 2}` : ''] })] })] }), _jsx("div", { className: "flex items-center gap-3", children: _jsxs("div", { className: "hidden lg:flex items-center gap-2", children: [chipPanels.map((p, idx) => (_jsxs("div", { className: "px-2 py-1 rounded-full bg-muted/50 text-xs flex items-center gap-2", children: [_jsx("span", { className: "text-muted-foreground truncate max-w-[140px]", children: String(p.title || p.metricKey) }), _jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: groupEntityIds, metricKey: p.metricKey, end: range?.end, unit: catalogByKey[p.metricKey]?.unit, agg: (p.agg || 'last'), className: "text-xs font-semibold tabular-nums", placeholder: "\u2014" })] }, `${g.key}.chip.${p.metricKey}.${idx}`))), remainingCount > 0 ? (_jsxs("span", { className: "text-xs text-muted-foreground", children: ["+", remainingCount] })) : null] }) })] }), isOpen ? (_jsx("div", { className: "mt-4 space-y-4", children: g.panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${g.key}.${p.metricKey}.${idx}`))) })) : null] }, `group.${g.key}`));
+                return (_jsxs(Card, { children: [_jsxs("button", { type: "button", className: "w-full flex items-center justify-between gap-4 text-left", onClick: () => toggleGroup(g.key), children: [_jsxs("div", { className: "flex items-center gap-3 min-w-0", children: [_jsx("span", { className: "text-muted-foreground", children: chevron }), _jsx("div", { className: "h-9 w-9 rounded-lg flex items-center justify-center shrink-0", style: chipColor
+                                                ? { backgroundColor: `${chipColor}1A`, border: `1px solid ${chipColor}40` }
+                                                : { backgroundColor: 'var(--hit-muted, rgba(148,163,184,0.18))' }, children: Icon ? (_jsx("span", { style: chipColor ? { color: chipColor, display: 'inline-flex' } : { display: 'inline-flex' }, children: _jsx(Icon, { size: 18, className: chipColor ? undefined : 'text-muted-foreground' }) })) : (_jsx("span", { className: "text-xs text-muted-foreground", children: "\u2014" })) }), _jsxs("div", { className: "min-w-0", children: [_jsxs("div", { className: "flex items-center gap-2 min-w-0", children: [_jsx("div", { className: "font-semibold truncate", children: g.label }), _jsx("span", { className: "inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground shrink-0", children: g.panels.length })] }), _jsxs("div", { className: "text-xs text-muted-foreground truncate", children: [subtitleNames.join(' · '), g.panels.length > 2 ? ` · +${g.panels.length - 2}` : ''] })] })] }), _jsx("div", { className: "flex items-center gap-3", children: _jsxs("div", { className: "hidden lg:flex items-center gap-2", children: [chipPanels.map((p, idx) => (_jsxs("div", { className: "px-2 py-1 rounded-full bg-muted/50 text-xs flex items-center gap-2", children: [_jsx("span", { className: "text-muted-foreground truncate max-w-[140px]", children: String(p.title || p.metricKey) }), _jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: groupEntityIds, metricKey: p.metricKey, end: range?.end, unit: catalogByKey[p.metricKey]?.unit, agg: (p.agg || 'last'), className: "text-xs font-semibold tabular-nums", placeholder: "\u2014" })] }, `${g.key}.chip.${p.metricKey}.${idx}`))), remainingCount > 0 ? (_jsxs("span", { className: "text-xs text-muted-foreground", children: ["+", remainingCount] })) : null] }) })] }), isOpen ? (_jsx("div", { className: "mt-4 space-y-4", children: g.panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${g.key}.${p.metricKey}.${idx}`))) })) : null] }, `group.${g.key}`));
             })] }));
 }
 function MetricsPanelItem(props) {

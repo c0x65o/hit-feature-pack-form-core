@@ -88,6 +88,7 @@ export function FormBuilder({ id, onNavigate }: Props) {
       groupKey?: string;
       groupLabel?: string;
       groupIcon?: string;
+      groupColor?: string;
       groupPrimary?: boolean;
     }>
   >([]);
@@ -1034,6 +1035,16 @@ export function FormBuilder({ id, onNavigate }: Props) {
                         setMetricsConfig(next);
                       }}
                       placeholder='e.g., "Users", "Heart"'
+                    />
+                    <Input
+                      label="Group Color (optional)"
+                      value={(panel as any).groupColor || ''}
+                      onChange={(v: string) => {
+                        const next = [...metricsConfig];
+                        next[idx] = { ...next[idx], groupColor: v || undefined };
+                        setMetricsConfig(next);
+                      }}
+                      placeholder='e.g., "#5865F2"'
                     />
                     <Select
                       label="Primary in Group?"

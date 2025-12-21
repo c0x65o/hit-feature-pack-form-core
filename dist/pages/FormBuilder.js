@@ -511,7 +511,11 @@ export function FormBuilder({ id, onNavigate }) {
                                                         const next = [...metricsConfig];
                                                         next[idx] = { ...next[idx], groupIcon: v || undefined };
                                                         setMetricsConfig(next);
-                                                    }, placeholder: 'e.g., "Users", "Heart"' }), _jsx(Select, { label: "Primary in Group?", value: String(Boolean(panel.groupPrimary)), onChange: (v) => {
+                                                    }, placeholder: 'e.g., "Users", "Heart"' }), _jsx(Input, { label: "Group Color (optional)", value: panel.groupColor || '', onChange: (v) => {
+                                                        const next = [...metricsConfig];
+                                                        next[idx] = { ...next[idx], groupColor: v || undefined };
+                                                        setMetricsConfig(next);
+                                                    }, placeholder: 'e.g., "#5865F2"' }), _jsx(Select, { label: "Primary in Group?", value: String(Boolean(panel.groupPrimary)), onChange: (v) => {
                                                         const next = [...metricsConfig];
                                                         next[idx] = { ...next[idx], groupPrimary: v === 'true' };
                                                         setMetricsConfig(next);
