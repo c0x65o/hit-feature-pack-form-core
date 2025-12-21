@@ -1,5 +1,5 @@
 'use client';
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useMemo, useState } from 'react';
 import { useUi } from '@hit/ui-kit';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer, } from 'recharts';
@@ -151,6 +151,7 @@ function MetricsPanelItem(props) {
     const [error, setError] = useState(null);
     const [rows, setRows] = useState([]);
     const [baseline, setBaseline] = useState(0);
+    const [debug, setDebug] = useState(null);
     const start = props.range?.start;
     const end = props.range?.end;
     const entityIds = useMemo(() => {
@@ -169,36 +170,39 @@ function MetricsPanelItem(props) {
                 setBaseline(0);
                 return;
             }
+            if (entityIds.length === 0) {
+                setBaseline(0);
+                return;
+            }
             try {
                 const baselineEnd = new Date(start.getTime() - 1);
-                const responses = await Promise.all(entityIds.map(async (entityId) => {
-                    const res = await fetch('/api/metrics/query', {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...getAuthHeaders(),
-                        },
-                        body: JSON.stringify({
-                            metricKey: props.panel.metricKey,
-                            bucket: 'none',
-                            agg: 'sum',
-                            start: '2000-01-01T00:00:00.000Z',
-                            end: toDateInput(baselineEnd),
-                            entityKind: props.entityKind,
-                            entityId,
-                            dimensions: props.panel.dimensions || undefined,
-                        }),
-                    });
-                    if (!res.ok)
-                        return 0;
-                    const json = await res.json().catch(() => null);
-                    const v = Array.isArray(json?.data) && json.data[0]?.value != null ? Number(json.data[0].value) : 0;
-                    return Number.isFinite(v) ? v : 0;
-                }));
-                const sum = responses.reduce((acc, v) => acc + (Number.isFinite(v) ? v : 0), 0);
+                const res = await fetch('/api/metrics/query', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders(),
+                    },
+                    body: JSON.stringify({
+                        metricKey: props.panel.metricKey,
+                        bucket: 'none',
+                        agg: 'sum',
+                        start: '2000-01-01T00:00:00.000Z',
+                        end: toDateInput(baselineEnd),
+                        entityKind: props.entityKind,
+                        entityIds,
+                        dimensions: props.panel.dimensions || undefined,
+                    }),
+                });
+                if (!res.ok) {
+                    if (!cancelled)
+                        setBaseline(0);
+                    return;
+                }
+                const json = await res.json().catch(() => null);
+                const v = Array.isArray(json?.data) && json.data[0]?.value != null ? Number(json.data[0].value) : 0;
                 if (!cancelled)
-                    setBaseline(Number.isFinite(sum) ? sum : 0);
+                    setBaseline(Number.isFinite(v) ? v : 0);
             }
             catch {
                 if (!cancelled)
@@ -220,48 +224,63 @@ function MetricsPanelItem(props) {
                     setRows([]);
                     return;
                 }
-                const perEntity = await Promise.all(entityIds.map(async (entityId) => {
-                    const res = await fetch('/api/metrics/query', {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...getAuthHeaders(),
-                        },
-                        body: JSON.stringify({
-                            metricKey: props.panel.metricKey,
-                            bucket,
-                            agg,
-                            start: toDateInput(start),
-                            end: toDateInput(end),
-                            entityKind: props.entityKind,
-                            entityId,
-                            dimensions: props.panel.dimensions || undefined,
-                        }),
+                if (entityIds.length === 0) {
+                    setRows([]);
+                    setDebug({
+                        entityKind: props.entityKind,
+                        entityIds,
+                        metricKey: props.panel.metricKey,
+                        bucket,
+                        agg,
+                        start: start ? start.toISOString() : undefined,
+                        end: end ? end.toISOString() : undefined,
+                        rows: 0,
                     });
-                    if (!res.ok) {
-                        const json = await res.json().catch(() => ({}));
-                        throw new Error(json?.error || `Query failed (${res.status})`);
-                    }
-                    const json = await res.json().catch(() => null);
-                    return Array.isArray(json?.data) ? json.data : [];
-                }));
-                // Merge by bucket by summing values across entities.
-                const merged = new Map();
-                for (const rows of perEntity) {
-                    for (const r of rows) {
-                        const b = r?.bucket ? String(r.bucket) : '';
-                        const v = r?.value === null || r?.value === undefined ? 0 : Number(r.value);
-                        if (!b || !Number.isFinite(v))
-                            continue;
-                        merged.set(b, (merged.get(b) || 0) + v);
-                    }
+                    return;
                 }
-                const data = Array.from(merged.entries())
-                    .map(([bucket, value]) => ({ bucket, value }))
-                    .sort((a, b) => a.bucket.localeCompare(b.bucket));
-                if (!cancelled)
+                const res = await fetch('/api/metrics/query', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders(),
+                    },
+                    body: JSON.stringify({
+                        metricKey: props.panel.metricKey,
+                        bucket,
+                        agg,
+                        start: toDateInput(start),
+                        end: toDateInput(end),
+                        entityKind: props.entityKind,
+                        entityIds,
+                        dimensions: props.panel.dimensions || undefined,
+                    }),
+                });
+                if (!res.ok) {
+                    const json = await res.json().catch(() => ({}));
+                    throw new Error(json?.error || `Query failed (${res.status})`);
+                }
+                const json = await res.json().catch(() => null);
+                const data = (Array.isArray(json?.data) ? json.data : [])
+                    .map((r) => ({
+                    bucket: r?.bucket ? String(r.bucket) : '',
+                    value: r?.value === null || r?.value === undefined ? null : Number(r.value),
+                }))
+                    .filter((r) => r.bucket && Number.isFinite(r.value))
+                    .sort((a, b) => String(a.bucket).localeCompare(String(b.bucket)));
+                if (!cancelled) {
                     setRows(data);
+                    setDebug({
+                        entityKind: props.entityKind,
+                        entityIds,
+                        metricKey: props.panel.metricKey,
+                        bucket,
+                        agg,
+                        start: start ? start.toISOString() : undefined,
+                        end: end ? end.toISOString() : undefined,
+                        rows: data.length,
+                    });
+                }
             }
             catch (e) {
                 if (!cancelled)
@@ -391,7 +410,7 @@ function MetricsPanelItem(props) {
     }, [chartData]);
     return (_jsxs(Card, { children: [_jsxs("div", { className: "flex items-baseline justify-between gap-4 mb-3", children: [_jsx("div", { className: "text-lg font-semibold", children: title }), _jsx("div", { className: "text-sm text-muted-foreground", children: latestValue === null ? '' : formatValue(latestValue, props.unit) })] }), cumulative && rangeTotal !== null && (_jsx("div", { className: "text-xs text-muted-foreground mb-2", children: cumulative === 'range'
                     ? `Range total: ${formatValue(rangeTotal, props.unit)}`
-                    : `Range total: ${formatValue(rangeTotal, props.unit)} · All-time: ${formatValue((baseline || 0) + rangeTotal, props.unit)}` })), error ? (_jsx(Alert, { variant: "error", title: "Metrics error", children: error })) : loading ? (_jsx("div", { className: "text-sm text-muted-foreground", children: "Loading\u2026" })) : chartData.length === 0 ? (_jsx("div", { className: "text-sm text-muted-foreground", children: "No data" })) : (_jsx(ResponsiveContainer, { width: "100%", height: 220, children: _jsxs(LineChart, { data: overlayEnabled ? chartDataWithTs : chartData, children: [_jsx(CartesianGrid, { strokeDasharray: "3 3" }), _jsx(XAxis, { dataKey: overlayEnabled ? '_ts' : 'bucket', type: overlayEnabled ? 'number' : undefined, scale: overlayEnabled ? 'time' : undefined, domain: overlayEnabled ? ['dataMin', 'dataMax'] : undefined, tickFormatter: (v) => {
+                    : `Range total: ${formatValue(rangeTotal, props.unit)} · All-time: ${formatValue((baseline || 0) + rangeTotal, props.unit)}` })), error ? (_jsx(Alert, { variant: "error", title: "Metrics error", children: error })) : loading ? (_jsx("div", { className: "text-sm text-muted-foreground", children: "Loading\u2026" })) : chartData.length === 0 ? (_jsxs(_Fragment, { children: [_jsx("div", { className: "text-sm text-muted-foreground", children: "No data" }), debug && (_jsxs("details", { className: "mt-2", children: [_jsx("summary", { className: "text-xs text-muted-foreground cursor-pointer select-none", children: "Debug" }), _jsx("div", { className: "mt-2 text-xs text-muted-foreground whitespace-pre-wrap", children: JSON.stringify(debug, null, 2) })] }))] })) : (_jsx(ResponsiveContainer, { width: "100%", height: 220, children: _jsxs(LineChart, { data: overlayEnabled ? chartDataWithTs : chartData, children: [_jsx(CartesianGrid, { strokeDasharray: "3 3" }), _jsx(XAxis, { dataKey: overlayEnabled ? '_ts' : 'bucket', type: overlayEnabled ? 'number' : undefined, scale: overlayEnabled ? 'time' : undefined, domain: overlayEnabled ? ['dataMin', 'dataMax'] : undefined, tickFormatter: (v) => {
                                 try {
                                     const d = new Date(overlayEnabled ? Number(v) : String(v));
                                     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });

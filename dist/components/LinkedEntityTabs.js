@@ -181,12 +181,42 @@ export function LinkedEntityTabs({ entity, overview, overviewLabel = 'Overview',
                             if (selectedFormInfo?.formSlug === 'storefronts') {
                                 // Storefronts metrics are ingested/scoped to the storefront entry IDs (entity_kind=forms_storefronts).
                                 // To reduce unnecessary per-entity queries, prefer Steam storefront entries when available.
-                                const steamIds = (entriesData?.items || [])
-                                    .filter((it) => String(it?.data?.platform || '').toLowerCase() === 'steam')
-                                    .map((it) => String(it?.id || '').trim())
-                                    .filter(Boolean);
-                                if (steamIds.length > 0)
-                                    metricsEntityIds = steamIds;
+                                // Also dedupe by store_id (we historically had duplicate Steam entries for the same app).
+                                const steamEntries = (entriesData?.items || []).filter((it) => String(it?.data?.platform || '').toLowerCase() === 'steam');
+                                const byStoreId = new Map();
+                                for (const it of steamEntries) {
+                                    const id = String(it?.id || '').trim();
+                                    const storeId = String(it?.data?.store_id || '').trim();
+                                    if (!id || !storeId)
+                                        continue;
+                                    const arr = byStoreId.get(storeId) || [];
+                                    arr.push({ id, storeId });
+                                    byStoreId.set(storeId, arr);
+                                }
+                                function scoreStorefrontId(id, storeId) {
+                                    // Prefer canonical IDs: entry_storefront_<slug>_steam_<storeId>
+                                    let score = 0;
+                                    if (id.startsWith('entry_storefront_'))
+                                        score += 10;
+                                    if (id.includes('_steam_'))
+                                        score += 10;
+                                    if (id.endsWith(`_steam_${storeId}`))
+                                        score += 50;
+                                    if (id.endsWith(`_${storeId}`))
+                                        score += 5;
+                                    score += Math.min(id.length, 200) / 100; // slight preference for richer IDs over legacy short ones
+                                    return score;
+                                }
+                                const dedupedSteamIds = [];
+                                for (const [storeId, entries] of byStoreId.entries()) {
+                                    const best = entries
+                                        .slice()
+                                        .sort((a, b) => scoreStorefrontId(b.id, storeId) - scoreStorefrontId(a.id, storeId))[0];
+                                    if (best?.id)
+                                        dedupedSteamIds.push(best.id);
+                                }
+                                if (dedupedSteamIds.length > 0)
+                                    metricsEntityIds = dedupedSteamIds;
                             }
                             return (_jsx(MetricsPanel, { entityKind: metricsEntityKind, entityIds: metricsEntityIds, metrics: metricsMeta }));
                         })()) : (_jsx(DataTable, { columns: columns, data: filteredRows, emptyMessage: "No entries found", loading: entriesLoading || formsLoading, searchable: true, pageSize: pageSize, page: page, total: entriesData?.pagination.total, onPageChange: setPage, manualPagination: true, onRefresh: refreshEntries, refreshing: entriesLoading, tableId: `forms.entries.${selectedFormInfo.formId}`, enableViews: true, onViewFiltersChange: (filters) => setViewFilters(filters), onRowClick: (row) => {

@@ -276,6 +276,9 @@ function MetricsPanelItem(props: {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<any[]>([]);
   const [baseline, setBaseline] = useState<number>(0);
+  const [debug, setDebug] = useState<{ entityKind: string; entityIds: string[]; metricKey: string; bucket: string; agg: string; start?: string; end?: string; rows: number } | null>(
+    null
+  );
 
   const start = props.range?.start;
   const end = props.range?.end;
@@ -298,36 +301,37 @@ function MetricsPanelItem(props: {
         setBaseline(0);
         return;
       }
+      if (entityIds.length === 0) {
+        setBaseline(0);
+        return;
+      }
       try {
         const baselineEnd = new Date(start.getTime() - 1);
-        const responses = await Promise.all(
-          entityIds.map(async (entityId) => {
-            const res = await fetch('/api/metrics/query', {
-              method: 'POST',
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders(),
-              },
-              body: JSON.stringify({
-                metricKey: props.panel.metricKey,
-                bucket: 'none',
-                agg: 'sum',
-                start: '2000-01-01T00:00:00.000Z',
-                end: toDateInput(baselineEnd),
-                entityKind: props.entityKind,
-                entityId,
-                dimensions: props.panel.dimensions || undefined,
-              }),
-            });
-            if (!res.ok) return 0;
-            const json = await res.json().catch(() => null);
-            const v = Array.isArray(json?.data) && json.data[0]?.value != null ? Number(json.data[0].value) : 0;
-            return Number.isFinite(v) ? v : 0;
+        const res = await fetch('/api/metrics/query', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            metricKey: props.panel.metricKey,
+            bucket: 'none',
+            agg: 'sum',
+            start: '2000-01-01T00:00:00.000Z',
+            end: toDateInput(baselineEnd),
+            entityKind: props.entityKind,
+            entityIds,
+            dimensions: props.panel.dimensions || undefined,
           }),
-        );
-        const sum = responses.reduce((acc, v) => acc + (Number.isFinite(v) ? v : 0), 0);
-        if (!cancelled) setBaseline(Number.isFinite(sum) ? sum : 0);
+        });
+        if (!res.ok) {
+          if (!cancelled) setBaseline(0);
+          return;
+        }
+        const json = await res.json().catch(() => null);
+        const v = Array.isArray(json?.data) && json.data[0]?.value != null ? Number(json.data[0].value) : 0;
+        if (!cancelled) setBaseline(Number.isFinite(v) ? v : 0);
       } catch {
         if (!cancelled) setBaseline(0);
       }
@@ -348,51 +352,65 @@ function MetricsPanelItem(props: {
           setRows([]);
           return;
         }
-        const perEntity = await Promise.all(
-          entityIds.map(async (entityId) => {
-            const res = await fetch('/api/metrics/query', {
-              method: 'POST',
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders(),
-              },
-              body: JSON.stringify({
-                metricKey: props.panel.metricKey,
-                bucket,
-                agg,
-                start: toDateInput(start),
-                end: toDateInput(end),
-                entityKind: props.entityKind,
-                entityId,
-                dimensions: props.panel.dimensions || undefined,
-              }),
-            });
-            if (!res.ok) {
-              const json = await res.json().catch(() => ({}));
-              throw new Error(json?.error || `Query failed (${res.status})`);
-            }
-            const json = await res.json().catch(() => null);
-            return Array.isArray(json?.data) ? json.data : [];
-          }),
-        );
-
-        // Merge by bucket by summing values across entities.
-        const merged = new Map<string, number>();
-        for (const rows of perEntity) {
-          for (const r of rows as any[]) {
-            const b = r?.bucket ? String(r.bucket) : '';
-            const v = r?.value === null || r?.value === undefined ? 0 : Number(r.value);
-            if (!b || !Number.isFinite(v)) continue;
-            merged.set(b, (merged.get(b) || 0) + v);
-          }
+        if (entityIds.length === 0) {
+          setRows([]);
+          setDebug({
+            entityKind: props.entityKind,
+            entityIds,
+            metricKey: props.panel.metricKey,
+            bucket,
+            agg,
+            start: start ? start.toISOString() : undefined,
+            end: end ? end.toISOString() : undefined,
+            rows: 0,
+          });
+          return;
         }
 
-        const data = Array.from(merged.entries())
-          .map(([bucket, value]) => ({ bucket, value }))
-          .sort((a, b) => a.bucket.localeCompare(b.bucket));
+        const res = await fetch('/api/metrics/query', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            metricKey: props.panel.metricKey,
+            bucket,
+            agg,
+            start: toDateInput(start),
+            end: toDateInput(end),
+            entityKind: props.entityKind,
+            entityIds,
+            dimensions: props.panel.dimensions || undefined,
+          }),
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json?.error || `Query failed (${res.status})`);
+        }
+        const json = await res.json().catch(() => null);
+        const data = (Array.isArray(json?.data) ? json.data : [])
+          .map((r: any) => ({
+            bucket: r?.bucket ? String(r.bucket) : '',
+            value: r?.value === null || r?.value === undefined ? null : Number(r.value),
+          }))
+          .filter((r: any) => r.bucket && Number.isFinite(r.value))
+          .sort((a: any, b: any) => String(a.bucket).localeCompare(String(b.bucket)));
 
-        if (!cancelled) setRows(data);
+        if (!cancelled) {
+          setRows(data);
+          setDebug({
+            entityKind: props.entityKind,
+            entityIds,
+            metricKey: props.panel.metricKey,
+            bucket,
+            agg,
+            start: start ? start.toISOString() : undefined,
+            end: end ? end.toISOString() : undefined,
+            rows: data.length,
+          });
+        }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Failed to load metrics');
       } finally {
@@ -558,7 +576,15 @@ function MetricsPanelItem(props: {
       ) : loading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : chartData.length === 0 ? (
-        <div className="text-sm text-muted-foreground">No data</div>
+        <>
+          <div className="text-sm text-muted-foreground">No data</div>
+          {debug && (
+            <details className="mt-2">
+              <summary className="text-xs text-muted-foreground cursor-pointer select-none">Debug</summary>
+              <div className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap">{JSON.stringify(debug, null, 2)}</div>
+            </details>
+          )}
+        </>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={overlayEnabled ? chartDataWithTs : chartData}>
