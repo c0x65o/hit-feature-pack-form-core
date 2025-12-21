@@ -28,6 +28,7 @@ function resolveLucideIcon(name) {
     const Comp = LucideIcons[key];
     return Comp || null;
 }
+const MAX_GROUP_HEADER_CHIPS = 3;
 function formatValue(value, unit) {
     if (!Number.isFinite(value))
         return '';
@@ -264,11 +265,15 @@ export function MetricsPanel(props) {
                     g.panels[0];
                 const chevron = isOpen ? _jsx(ChevronDown, { size: 18 }) : _jsx(ChevronRight, { size: 18 });
                 const primaryLabel = String(primary?.title || primary?.metricKey || 'Current');
-                return (_jsxs(Card, { children: [_jsxs("button", { type: "button", className: "w-full flex items-center justify-between gap-4 text-left", onClick: () => toggleGroup(g.key), children: [_jsxs("div", { className: "flex items-center gap-3 min-w-0", children: [_jsx("span", { className: "text-muted-foreground", children: chevron }), _jsx("div", { className: "h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0", children: Icon ? _jsx(Icon, { size: 18, className: "text-muted-foreground" }) : _jsx("span", { className: "text-xs text-muted-foreground", children: "\u2014" }) }), _jsxs("div", { className: "min-w-0", children: [_jsx("div", { className: "font-semibold truncate", children: g.label }), _jsxs("div", { className: "text-xs text-muted-foreground truncate", children: [primaryLabel, g.panels.length > 1 ? ` · ${g.panels.length} metrics` : ''] })] })] }), _jsx("div", { className: "flex items-center gap-3", children: _jsxs("div", { className: "text-right", children: [_jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: (Array.isArray(props.entityIds) && props.entityIds.length > 0
-                                                    ? props.entityIds
-                                                    : props.entityId
-                                                        ? [props.entityId]
-                                                        : []), metricKey: primary.metricKey, end: range?.end, unit: catalogByKey[primary.metricKey]?.unit, agg: (primary.agg || 'last'), className: "text-xl font-semibold leading-none", placeholder: "\u2014" }), _jsx("div", { className: "text-xs text-muted-foreground mt-1", children: "Current" })] }) })] }), isOpen ? (_jsx("div", { className: "mt-4 space-y-4", children: g.panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${g.key}.${p.metricKey}.${idx}`))) })) : null] }, `group.${g.key}`));
+                const groupEntityIds = (Array.isArray(props.entityIds) && props.entityIds.length > 0
+                    ? props.entityIds
+                    : props.entityId
+                        ? [props.entityId]
+                        : []);
+                const chipPanels = g.panels
+                    .filter((p) => p !== primary)
+                    .slice(0, Math.max(0, MAX_GROUP_HEADER_CHIPS - 1));
+                return (_jsxs(Card, { children: [_jsxs("button", { type: "button", className: "w-full flex items-center justify-between gap-4 text-left", onClick: () => toggleGroup(g.key), children: [_jsxs("div", { className: "flex items-center gap-3 min-w-0", children: [_jsx("span", { className: "text-muted-foreground", children: chevron }), _jsx("div", { className: "h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0", children: Icon ? _jsx(Icon, { size: 18, className: "text-muted-foreground" }) : _jsx("span", { className: "text-xs text-muted-foreground", children: "\u2014" }) }), _jsxs("div", { className: "min-w-0", children: [_jsxs("div", { className: "flex items-center gap-2 min-w-0", children: [_jsx("div", { className: "font-semibold truncate", children: g.label }), _jsx("span", { className: "inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground shrink-0", children: g.panels.length })] }), _jsxs("div", { className: "text-xs text-muted-foreground truncate", children: [primaryLabel, g.panels.length > 1 ? ` · ${g.panels.length} metrics` : ''] })] })] }), _jsxs("div", { className: "flex items-center gap-3", children: [_jsx("div", { className: "hidden md:flex items-center gap-2", children: chipPanels.map((p, idx) => (_jsxs("div", { className: "px-2.5 py-1.5 rounded-md border bg-background flex flex-col items-end min-w-[84px]", children: [_jsx("div", { className: "text-[11px] text-muted-foreground leading-none truncate max-w-[120px]", children: String(p.title || p.metricKey) }), _jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: groupEntityIds, metricKey: p.metricKey, end: range?.end, unit: catalogByKey[p.metricKey]?.unit, agg: (p.agg || 'last'), className: "text-sm font-semibold leading-none mt-1", placeholder: "\u2014" })] }, `${g.key}.chip.${p.metricKey}.${idx}`))) }), _jsxs("div", { className: "text-right", children: [_jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: groupEntityIds, metricKey: primary.metricKey, end: range?.end, unit: catalogByKey[primary.metricKey]?.unit, agg: (primary.agg || 'last'), className: "text-xl font-semibold leading-none", placeholder: "\u2014" }), _jsx("div", { className: "text-xs text-muted-foreground mt-1", children: "Current" })] })] })] }), isOpen ? (_jsx("div", { className: "mt-4 space-y-4", children: g.panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${g.key}.${p.metricKey}.${idx}`))) })) : null] }, `group.${g.key}`));
             })] }));
 }
 function MetricsPanelItem(props) {

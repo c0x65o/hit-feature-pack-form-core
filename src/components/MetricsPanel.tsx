@@ -80,6 +80,8 @@ function resolveLucideIcon(name?: string) {
   return Comp || null;
 }
 
+const MAX_GROUP_HEADER_CHIPS = 3;
+
 function formatValue(value: number, unit: string | undefined): string {
   if (!Number.isFinite(value)) return '';
   const u = String(unit || '').toLowerCase();
@@ -391,6 +393,15 @@ export function MetricsPanel(props: {
           g.panels[0];
         const chevron = isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />;
         const primaryLabel = String(primary?.title || primary?.metricKey || 'Current');
+        const groupEntityIds = (Array.isArray(props.entityIds) && props.entityIds.length > 0
+          ? props.entityIds
+          : props.entityId
+            ? [props.entityId]
+            : []) as string[];
+
+        const chipPanels = g.panels
+          .filter((p) => p !== primary)
+          .slice(0, Math.max(0, MAX_GROUP_HEADER_CHIPS - 1));
 
         return (
           <Card key={`group.${g.key}`}>
@@ -405,7 +416,12 @@ export function MetricsPanel(props: {
                   {Icon ? <Icon size={18} className="text-muted-foreground" /> : <span className="text-xs text-muted-foreground">—</span>}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-semibold truncate">{g.label}</div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="font-semibold truncate">{g.label}</div>
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground shrink-0">
+                      {g.panels.length}
+                    </span>
+                  </div>
                   <div className="text-xs text-muted-foreground truncate">
                     {primaryLabel}
                     {g.panels.length > 1 ? ` · ${g.panels.length} metrics` : ''}
@@ -414,14 +430,34 @@ export function MetricsPanel(props: {
               </div>
 
               <div className="flex items-center gap-3">
+                {/* Mini stat chips (up to MAX_GROUP_HEADER_CHIPS) */}
+                <div className="hidden md:flex items-center gap-2">
+                  {chipPanels.map((p, idx) => (
+                    <div
+                      key={`${g.key}.chip.${p.metricKey}.${idx}`}
+                      className="px-2.5 py-1.5 rounded-md border bg-background flex flex-col items-end min-w-[84px]"
+                    >
+                      <div className="text-[11px] text-muted-foreground leading-none truncate max-w-[120px]">
+                        {String(p.title || p.metricKey)}
+                      </div>
+                      <GroupCurrentValue
+                        entityKind={props.entityKind}
+                        entityIds={groupEntityIds}
+                        metricKey={p.metricKey}
+                        end={range?.end}
+                        unit={catalogByKey[p.metricKey]?.unit}
+                        agg={(p.agg || 'last') as any}
+                        className="text-sm font-semibold leading-none mt-1"
+                        placeholder="—"
+                      />
+                    </div>
+                  ))}
+                </div>
+
                 <div className="text-right">
                   <GroupCurrentValue
                     entityKind={props.entityKind}
-                    entityIds={(Array.isArray(props.entityIds) && props.entityIds.length > 0
-                      ? props.entityIds
-                      : props.entityId
-                        ? [props.entityId]
-                        : []) as string[]}
+                    entityIds={groupEntityIds}
                     metricKey={primary.metricKey}
                     end={range?.end}
                     unit={catalogByKey[primary.metricKey]?.unit}
