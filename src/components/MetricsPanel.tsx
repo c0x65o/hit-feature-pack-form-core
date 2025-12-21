@@ -80,7 +80,7 @@ function resolveLucideIcon(name?: string) {
   return Comp || null;
 }
 
-const MAX_GROUP_HEADER_CHIPS = 3;
+const MAX_GROUP_HEADER_CHIPS = 2;
 
 function formatValue(value: number, unit: string | undefined): string {
   if (!Number.isFinite(value)) return '';
@@ -430,16 +430,11 @@ export function MetricsPanel(props: {
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Mini stat chips (up to MAX_GROUP_HEADER_CHIPS) */}
-                <div className="hidden md:flex items-center gap-2">
+                {/* Mini stat pills (subtle, like old marketing) */}
+                <div className="hidden lg:flex items-center gap-2">
                   {chipPanels.map((p, idx) => (
-                    <div
-                      key={`${g.key}.chip.${p.metricKey}.${idx}`}
-                      className="px-2.5 py-1.5 rounded-md border bg-background flex flex-col items-end min-w-[84px]"
-                    >
-                      <div className="text-[11px] text-muted-foreground leading-none truncate max-w-[120px]">
-                        {String(p.title || p.metricKey)}
-                      </div>
+                    <div key={`${g.key}.chip.${p.metricKey}.${idx}`} className="px-2 py-1 rounded-full bg-muted/50 text-xs flex items-center gap-2">
+                      <span className="text-muted-foreground truncate max-w-[140px]">{String(p.title || p.metricKey)}</span>
                       <GroupCurrentValue
                         entityKind={props.entityKind}
                         entityIds={groupEntityIds}
@@ -447,7 +442,7 @@ export function MetricsPanel(props: {
                         end={range?.end}
                         unit={catalogByKey[p.metricKey]?.unit}
                         agg={(p.agg || 'last') as any}
-                        className="text-sm font-semibold leading-none mt-1"
+                        className="text-xs font-semibold tabular-nums"
                         placeholder="—"
                       />
                     </div>
