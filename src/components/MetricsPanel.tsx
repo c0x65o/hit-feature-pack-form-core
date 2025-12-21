@@ -55,6 +55,16 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function shouldShowMetricsDebug(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    // Opt-in only: set localStorage hit_debug_metrics=1
+    return localStorage.getItem('hit_debug_metrics') === '1';
+  } catch {
+    return false;
+  }
+}
+
 function toDateInput(d: Date): string {
   return d.toISOString();
 }
@@ -834,7 +844,7 @@ function MetricsPanelItem(props: {
       ) : chartData.length === 0 ? (
         <>
           <div className="text-sm text-muted-foreground">No data</div>
-          {debug && (
+          {debug && shouldShowMetricsDebug() && (
             <details className="mt-2">
               <summary className="text-xs text-muted-foreground cursor-pointer select-none">Debug</summary>
               <div className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap">{JSON.stringify(debug, null, 2)}</div>
