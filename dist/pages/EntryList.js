@@ -8,11 +8,12 @@ export function EntryList({ id, onNavigate }) {
     const { Page, Card, Button, DataTable, Alert } = useUi();
     const formId = id;
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
     const [sortBy, setSortBy] = useState('updatedAt');
     const [sortOrder, setSortOrder] = useState('desc');
     const [activeFilters, setActiveFilters] = useState([]);
     const { form, version } = useForm(formId);
-    const { data, loading, error, refresh } = useEntries({ formId, page, pageSize: 25, sortBy, sortOrder });
+    const { data, loading, error, refresh } = useEntries({ formId, page, pageSize, sortBy, sortOrder });
     const { deleteEntry, loading: mutating } = useEntryMutations(formId);
     const navigate = (path) => {
         if (onNavigate)
@@ -178,9 +179,12 @@ export function EntryList({ id, onNavigate }) {
             updatedAt: e.updatedAt,
         }));
     }, [data]);
-    return (_jsxs(Page, { title: form?.name || '', description: "Form entries", actions: _jsx("div", { className: "flex items-center gap-2", children: _jsxs(Button, { variant: "primary", onClick: () => navigate(`/forms/${formId}/entries/new`), children: [_jsx(Plus, { size: 16, className: "mr-2" }), "New Entry"] }) }), children: [error && (_jsx(Alert, { variant: "error", title: "Error loading entries", children: error.message })), _jsx(Card, { children: _jsx(DataTable, { columns: columns, data: rows, emptyMessage: "No entries yet", loading: loading, searchable: true, pageSize: 25, page: page, total: data?.pagination.total, onPageChange: (newPage) => {
+    return (_jsxs(Page, { title: form?.name || '', description: "Form entries", actions: _jsx("div", { className: "flex items-center gap-2", children: _jsxs(Button, { variant: "primary", onClick: () => navigate(`/forms/${formId}/entries/new`), children: [_jsx(Plus, { size: 16, className: "mr-2" }), "New Entry"] }) }), children: [error && (_jsx(Alert, { variant: "error", title: "Error loading entries", children: error.message })), _jsx(Card, { children: _jsx(DataTable, { columns: columns, data: rows, emptyMessage: "No entries yet", loading: loading, searchable: true, pageSize: pageSize, page: page, total: data?.pagination.total, onPageChange: (newPage) => {
                         setPage(newPage);
-                    }, manualPagination: true, initialSorting: [{ id: sortBy, desc: sortOrder === 'desc' }], onRowClick: (row) => navigate(`/forms/${formId}/entries/${row.id}`), tableId: `form.${formId}`, enableViews: true, onViewFiltersChange: handleViewFiltersChange, onViewSortingChange: handleViewSortingChange, onRefresh: refresh, refreshing: loading }) })] }));
+                    }, manualPagination: true, initialSorting: [{ id: sortBy, desc: sortOrder === 'desc' }], pageSizeOptions: [10, 25, 50, 100], onPageSizeChange: (newSize) => {
+                        setPageSize(newSize);
+                        setPage(1);
+                    }, onRowClick: (row) => navigate(`/forms/${formId}/entries/${row.id}`), tableId: `form.${formId}`, enableViews: true, onViewFiltersChange: handleViewFiltersChange, onViewSortingChange: handleViewSortingChange, onRefresh: refresh, refreshing: loading }) })] }));
 }
 export default EntryList;
 //# sourceMappingURL=EntryList.js.map

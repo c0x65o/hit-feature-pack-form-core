@@ -15,11 +15,12 @@ export function EntryList({ id, onNavigate }: Props) {
   const formId = id as string;
 
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [sortBy, setSortBy] = useState<string>('updatedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [activeFilters, setActiveFilters] = useState<Array<{ field: string; operator: string; value: any }>>([]);
   const { form, version } = useForm(formId);
-  const { data, loading, error, refresh } = useEntries({ formId, page, pageSize: 25, sortBy, sortOrder });
+  const { data, loading, error, refresh } = useEntries({ formId, page, pageSize, sortBy, sortOrder });
   const { deleteEntry, loading: mutating } = useEntryMutations(formId);
 
   const navigate = (path: string) => {
@@ -232,7 +233,7 @@ export function EntryList({ id, onNavigate }: Props) {
           emptyMessage="No entries yet"
           loading={loading}
           searchable
-          pageSize={25}
+          pageSize={pageSize}
           page={page}
           total={data?.pagination.total}
           onPageChange={(newPage) => {
@@ -240,6 +241,11 @@ export function EntryList({ id, onNavigate }: Props) {
           }}
           manualPagination
           initialSorting={[{ id: sortBy, desc: sortOrder === 'desc' }]}
+          pageSizeOptions={[10, 25, 50, 100]}
+          onPageSizeChange={(newSize: number) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
           onRowClick={(row) => navigate(`/forms/${formId}/entries/${row.id}`)}
           tableId={`form.${formId}`}
           enableViews={true}
