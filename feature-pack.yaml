@@ -6,15 +6,17 @@ description: Runtime Forms feature pack with builder + CRUD entries + search + r
 
 # Route definitions - mapped to React components
 routes:
+  # Form management routes - admin only
   - path: /forms
     page: FormList
-    roles: []
+    roles: [admin]
   - path: /forms/new
     page: FormBuilder
-    roles: []
+    roles: [admin]
   - path: /forms/[id]
     page: FormBuilder
-    roles: []
+    roles: [admin]
+  # Entry routes - accessible based on form ACLs (checked at runtime)
   - path: /forms/[id]/entries
     page: EntryList
     roles: []
