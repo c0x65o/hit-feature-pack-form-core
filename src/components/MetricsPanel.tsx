@@ -55,16 +55,6 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-function shouldShowMetricsDebug(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    // Opt-in only: set localStorage hit_debug_metrics=1
-    return localStorage.getItem('hit_debug_metrics') === '1';
-  } catch {
-    return false;
-  }
-}
-
 function toDateInput(d: Date): string {
   return d.toISOString();
 }
@@ -91,6 +81,7 @@ type MetricsQueryBody = {
   entityId?: string;
   entityIds?: string[];
   dimensions?: Record<string, string | number | boolean | null>;
+  groupByEntityId?: boolean;
 };
 
 type MetricsQueryResponse = { data?: any[]; error?: string; meta?: any };
@@ -285,6 +276,7 @@ function GroupCurrentValue(props: {
       }
       try {
         if (!cancelled) setLoading(true);
+        const wantsLast = (props.agg || 'last') === 'last';
         const rows = await fetchMetricsQueryCached({
           metricKey: props.metricKey,
           bucket: 'none',
@@ -292,9 +284,15 @@ function GroupCurrentValue(props: {
           end: toDateInput(end),
           entityKind: props.entityKind,
           entityIds: ids,
+          groupByEntityId: wantsLast && ids.length > 1,
         });
-        const v = Array.isArray(rows) && rows[0]?.value != null ? Number(rows[0].value) : null;
-        if (!cancelled) setValue(Number.isFinite(v as any) ? (v as number) : null);
+        if (wantsLast && ids.length > 1) {
+          const sum = Array.isArray(rows) ? rows.reduce((acc, r: any) => acc + (r?.value == null ? 0 : Number(r.value)), 0) : 0;
+          if (!cancelled) setValue(Number.isFinite(sum) ? sum : null);
+        } else {
+          const v = Array.isArray(rows) && rows[0]?.value != null ? Number(rows[0].value) : null;
+          if (!cancelled) setValue(Number.isFinite(v as any) ? (v as number) : null);
+        }
       } catch {
         if (!cancelled) setValue(null);
       } finally {
@@ -621,9 +619,6 @@ function MetricsPanelItem(props: {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<any[]>([]);
   const [baseline, setBaseline] = useState<number>(0);
-  const [debug, setDebug] = useState<{ entityKind: string; entityIds: string[]; metricKey: string; bucket: string; agg: string; start?: string; end?: string; rows: number } | null>(
-    null
-  );
 
   const start = props.range?.start;
   const end = props.range?.end;
@@ -686,19 +681,10 @@ function MetricsPanelItem(props: {
         }
         if (entityIds.length === 0) {
           setRows([]);
-          setDebug({
-            entityKind: props.entityKind,
-            entityIds,
-            metricKey: props.panel.metricKey,
-            bucket,
-            agg,
-            start: start ? start.toISOString() : undefined,
-            end: end ? end.toISOString() : undefined,
-            rows: 0,
-          });
           return;
         }
 
+        const needsPerEntity = agg === 'last' && entityIds.length > 1;
         const rowsRaw = await fetchMetricsQueryCached({
           metricKey: props.panel.metricKey,
           bucket,
@@ -708,27 +694,33 @@ function MetricsPanelItem(props: {
           entityKind: props.entityKind,
           entityIds,
           dimensions: props.panel.dimensions || undefined,
+          groupByEntityId: needsPerEntity,
         });
-        const data = (Array.isArray(rowsRaw) ? rowsRaw : [])
-          .map((r: any) => ({
-            bucket: r?.bucket ? String(r.bucket) : '',
-            value: r?.value === null || r?.value === undefined ? null : Number(r.value),
-          }))
-          .filter((r: any) => r.bucket && Number.isFinite(r.value))
-          .sort((a: any, b: any) => String(a.bucket).localeCompare(String(b.bucket)));
+        let data: Array<{ bucket: string; value: number }> = [];
+        if (needsPerEntity) {
+          // groupByEntityId=true means rows are per-entity; merge by summing across entityIds.
+          const merged = new Map<string, number>();
+          for (const r of Array.isArray(rowsRaw) ? rowsRaw : []) {
+            const b = r?.bucket ? String(r.bucket) : '';
+            const v = r?.value == null ? 0 : Number(r.value);
+            if (!b || !Number.isFinite(v)) continue;
+            merged.set(b, (merged.get(b) || 0) + v);
+          }
+          data = Array.from(merged.entries())
+            .map(([bucket, value]) => ({ bucket, value }))
+            .sort((a, b) => a.bucket.localeCompare(b.bucket));
+        } else {
+          data = (Array.isArray(rowsRaw) ? rowsRaw : [])
+            .map((r: any) => ({
+              bucket: r?.bucket ? String(r.bucket) : '',
+              value: r?.value === null || r?.value === undefined ? null : Number(r.value),
+            }))
+            .filter((r: any) => r.bucket && Number.isFinite(r.value))
+            .sort((a: any, b: any) => String(a.bucket).localeCompare(String(b.bucket))) as any;
+        }
 
         if (!cancelled) {
           setRows(data);
-          setDebug({
-            entityKind: props.entityKind,
-            entityIds,
-            metricKey: props.panel.metricKey,
-            bucket,
-            agg,
-            start: start ? start.toISOString() : undefined,
-            end: end ? end.toISOString() : undefined,
-            rows: data.length,
-          });
         }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Failed to load metrics');
@@ -897,12 +889,6 @@ function MetricsPanelItem(props: {
       ) : chartData.length === 0 ? (
         <>
           <div className="text-sm text-muted-foreground">No data</div>
-          {debug && shouldShowMetricsDebug() && (
-            <details className="mt-2">
-              <summary className="text-xs text-muted-foreground cursor-pointer select-none">Debug</summary>
-              <div className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap">{JSON.stringify(debug, null, 2)}</div>
-            </details>
-          )}
         </>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
