@@ -806,7 +806,7 @@ export function FormBuilder({ id, onNavigate }: Props) {
                 Views
               </div>
               <div className="text-sm text-gray-500">
-                Configure saved views for the entries list. Views let users filter and organize data.
+                Create curated views for the entries list and share them with users, groups, or roles.
               </div>
             </div>
             <Button variant="secondary" onClick={() => {
@@ -815,6 +815,9 @@ export function FormBuilder({ id, onNavigate }: Props) {
               setViewBuilderDescription('');
               setViewBuilderFilters([]);
               setViewBuilderIsDefault(false);
+              setViewShares([]);
+              setViewSharesLoading(false);
+              setPendingShareRecipients([]);
               setShowViewBuilder(true);
             }}>
               <Plus size={16} className="mr-2" />
@@ -826,12 +829,12 @@ export function FormBuilder({ id, onNavigate }: Props) {
             {viewsLoading && (
               <div className="text-sm text-gray-500">Loading views...</div>
             )}
-            {!viewsLoading && views.length === 0 && (
+            {!viewsLoading && views.filter((v) => v._category === 'user').length === 0 && (
               <div className="text-sm text-gray-500 p-4 border border-dashed border-gray-600 rounded-lg text-center">
-                No views configured. Users can still create their own personal views from the entries list.
+                No curated views yet. Users can still create their own personal views from the entries list.
               </div>
             )}
-            {views.map((view) => (
+            {views.filter((v) => v._category === 'user').map((view) => (
               <div
                 key={view.id}
                 className="flex items-center justify-between p-3 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors"
@@ -843,8 +846,8 @@ export function FormBuilder({ id, onNavigate }: Props) {
                   <div>
                     <div className="font-medium flex items-center gap-2">
                       {view.name}
-                      {view.isSystem && (
-                        <span className="text-xs px-2 py-0.5 bg-blue-900 text-blue-300 rounded">System</span>
+                      {view.isShared && (
+                        <span className="text-xs px-2 py-0.5 bg-green-900 text-green-300 rounded">Shared</span>
                       )}
                     </div>
                     {view.description && (
@@ -857,39 +860,48 @@ export function FormBuilder({ id, onNavigate }: Props) {
                     )}
                   </div>
                 </div>
-                {!view.isSystem && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEditingView(view);
-                        setViewBuilderName(view.name);
-                        setViewBuilderDescription(view.description || '');
-                        setViewBuilderFilters(view.filters || []);
-                        setViewBuilderIsDefault(view.isDefault);
-                        setShowViewBuilder(true);
-                      }}
-                    >
-                      <Edit2 size={14} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={async () => {
-                        if (!confirm(`Delete view "${view.name}"?`)) return;
-                        try {
-                          await deleteView(view.id);
-                          refreshViews();
-                        } catch (err: any) {
-                          alert(err?.message || 'Failed to delete view');
-                        }
-                      }}
-                    >
-                      <Trash2 size={14} className="text-red-500" />
-                    </Button>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      setEditingView(view);
+                      setViewBuilderName(view.name);
+                      setViewBuilderDescription(view.description || '');
+                      setViewBuilderFilters(view.filters || []);
+                      setViewBuilderIsDefault(view.isDefault);
+                      setPendingShareRecipients([]);
+                      setViewShares([]);
+                      setViewSharesLoading(true);
+                      try {
+                        const s = await getShares(view.id);
+                        setViewShares(s);
+                      } catch {
+                        setViewShares([]);
+                      } finally {
+                        setViewSharesLoading(false);
+                      }
+                      setShowViewBuilder(true);
+                    }}
+                  >
+                    <Edit2 size={14} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      if (!confirm(`Delete view "${view.name}"?`)) return;
+                      try {
+                        await deleteView(view.id);
+                        refreshViews();
+                      } catch (err: any) {
+                        alert(err?.message || 'Failed to delete view');
+                      }
+                    }}
+                  >
+                    <Trash2 size={14} className="text-red-500" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -1093,6 +1105,9 @@ export function FormBuilder({ id, onNavigate }: Props) {
         onClose={() => {
           setShowViewBuilder(false);
           setEditingView(null);
+          setViewShares([]);
+          setViewSharesLoading(false);
+          setPendingShareRecipients([]);
         }}
         title={editingView ? 'Edit View' : 'Create View'}
         size="lg"
@@ -1234,6 +1249,24 @@ export function FormBuilder({ id, onNavigate }: Props) {
             />
             Set as default view
           </label>
+
+          <div style={{ borderTop: '1px solid var(--hit-border, #374151)', paddingTop: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Share2 size={16} />
+              <span style={{ fontSize: '14px', fontWeight: 500 }}>Sharing</span>
+            </div>
+            <TableViewSharingPanel
+              viewId={editingView?.id || null}
+              shares={viewShares}
+              setShares={setViewShares}
+              sharesLoading={viewSharesLoading}
+              pendingRecipients={pendingShareRecipients}
+              setPendingRecipients={setPendingShareRecipients}
+              addShare={addShare}
+              removeShare={removeShare}
+              allowPrincipalTypeSelection
+            />
+          </div>
         </div>
         
         <div style={{ 
@@ -1249,6 +1282,9 @@ export function FormBuilder({ id, onNavigate }: Props) {
             onClick={() => {
               setShowViewBuilder(false);
               setEditingView(null);
+              setViewShares([]);
+              setViewSharesLoading(false);
+              setPendingShareRecipients([]);
             }}
             disabled={viewBuilderSaving}
           >
@@ -1266,18 +1302,33 @@ export function FormBuilder({ id, onNavigate }: Props) {
                   description: viewBuilderDescription.trim() || undefined,
                   filters: viewBuilderFilters.filter((f) => f.field && f.operator),
                   isDefault: viewBuilderIsDefault,
-                  isSystem: true, // FormBuilder creates system views visible to all users
                 };
                 
                 if (editingView) {
                   await updateView(editingView.id, viewData);
                 } else {
-                  await createView(viewData);
+                  const newView = await createView(viewData);
+                  if (pendingShareRecipients.length > 0) {
+                    const failures: string[] = [];
+                    for (const r of pendingShareRecipients) {
+                      try {
+                        await addShare(newView.id, r.principalType, r.principalId);
+                      } catch (err: any) {
+                        failures.push(`${r.principalId}${err?.message ? ` (${err.message})` : ''}`);
+                      }
+                    }
+                    if (failures.length > 0) {
+                      alert(`View created, but some shares failed:\n${failures.join('\n')}`);
+                    }
+                  }
                 }
                 
                 refreshViews();
                 setShowViewBuilder(false);
                 setEditingView(null);
+                setViewShares([]);
+                setViewSharesLoading(false);
+                setPendingShareRecipients([]);
               } catch (err: any) {
                 alert(err?.message || 'Failed to save view');
               } finally {
