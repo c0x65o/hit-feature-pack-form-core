@@ -2,7 +2,7 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Save, ClipboardList, FileText } from 'lucide-react';
-import { useUi } from '@hit/ui-kit';
+import { useUi, useFormSubmit } from '@hit/ui-kit';
 import { useEntry, useEntryMutations, useForm } from '../hooks/useForms';
 export function EntryEdit({ id, entryId, onNavigate }) {
     const { Page, Card, Button, Input, TextArea, Select, Alert, Modal } = useUi();
@@ -10,7 +10,8 @@ export function EntryEdit({ id, entryId, onNavigate }) {
     const isNew = !entryId || entryId === 'new';
     const { form, version, loading: loadingForm, error: formError } = useForm(formId);
     const { entry, loading: loadingEntry, error: loadError } = useEntry(formId, isNew ? undefined : entryId);
-    const { createEntry, updateEntry, loading: saving, error: saveError } = useEntryMutations(formId);
+    const { createEntry, updateEntry } = useEntryMutations(formId);
+    const { submitting, error, fieldErrors, submit, clearError, setFieldErrors, clearFieldError } = useFormSubmit();
     const navigate = (path) => {
         if (onNavigate)
             onNavigate(path);
@@ -39,7 +40,6 @@ export function EntryEdit({ id, entryId, onNavigate }) {
             setDefaultsInitialized(true);
         }
     }, [isNew, fields, entry, defaultsInitialized]);
-    const [fieldErrors, setFieldErrors] = useState({});
     const [refPicker, setRefPicker] = useState({ open: false, fieldKey: null, targetFormId: null, displayFieldKey: null, multi: false });
     const [refSearch, setRefSearch] = useState('');
     const [refLoading, setRefLoading] = useState(false);
@@ -95,15 +95,51 @@ export function EntryEdit({ id, entryId, onNavigate }) {
                 setEntityLoading(true);
                 setEntityError(null);
                 setEntityItems([]);
-                if (entityPicker.entityKind !== 'project') {
-                    throw new Error(`Unsupported entity kind: ${entityPicker.entityKind}`);
-                }
                 const qs = new URLSearchParams({
                     page: '1',
                     pageSize: '25',
                     search: entitySearch,
                 });
-                const res = await fetch(`/api/projects?${qs.toString()}`, {
+                const kind = String(entityPicker.entityKind || '').trim();
+                let url;
+                let extractRows;
+                let toItem;
+                if (kind === 'project') {
+                    url = `/api/projects?${qs.toString()}`;
+                    extractRows = (json) => (Array.isArray(json?.data) ? json.data : []);
+                    toItem = (p) => ({
+                        id: String(p?.id || ''),
+                        label: String(p?.slug || p?.name || p?.id || ''),
+                    });
+                }
+                else if (kind === 'crm_contact') {
+                    url = `/api/crm/contacts?${qs.toString()}`;
+                    extractRows = (json) => (Array.isArray(json?.items) ? json.items : []);
+                    toItem = (c) => ({
+                        id: String(c?.id || ''),
+                        label: String(c?.name || c?.email || c?.id || ''),
+                    });
+                }
+                else if (kind === 'crm_company') {
+                    url = `/api/crm/companies?${qs.toString()}`;
+                    extractRows = (json) => (Array.isArray(json?.items) ? json.items : []);
+                    toItem = (c) => ({
+                        id: String(c?.id || ''),
+                        label: String(c?.name || c?.id || ''),
+                    });
+                }
+                else if (kind === 'crm_opportunity') {
+                    url = `/api/crm/opportunities?${qs.toString()}`;
+                    extractRows = (json) => (Array.isArray(json?.items) ? json.items : []);
+                    toItem = (o) => ({
+                        id: String(o?.id || ''),
+                        label: String(o?.name || o?.title || o?.id || ''),
+                    });
+                }
+                else {
+                    throw new Error(`Unsupported entity kind: ${kind}`);
+                }
+                const res = await fetch(url, {
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                 });
@@ -112,12 +148,9 @@ export function EntryEdit({ id, entryId, onNavigate }) {
                     throw new Error(err.error || err.message || res.statusText);
                 }
                 const json = await res.json();
-                const rows = Array.isArray(json?.data) ? json.data : [];
+                const rows = extractRows(json);
                 setEntityItems(rows
-                    .map((p) => ({
-                    id: String(p?.id || ''),
-                    label: String(p?.slug || p?.name || p?.id || ''),
-                }))
+                    .map(toItem)
                     .filter((x) => x.id && x.label));
             }
             catch (e) {
@@ -233,15 +266,22 @@ export function EntryEdit({ id, entryId, onNavigate }) {
     const handleSubmit = async () => {
         if (!validate())
             return;
-        if (isNew) {
-            const created = await createEntry(data);
-            navigate(`/forms/${formId}/entries/${created.id}`);
-            return;
+        const result = await submit(async () => {
+            if (isNew) {
+                const created = await createEntry(data);
+                return { id: created.id };
+            }
+            if (!entryId)
+                throw new Error('Invalid state');
+            await updateEntry(entryId, data);
+            return { id: entryId };
+        });
+        if (result && typeof result === 'object' && result !== null) {
+            const resultWithId = result;
+            if (resultWithId.id) {
+                navigate(`/forms/${formId}/entries/${resultWithId.id}`);
+            }
         }
-        if (!entryId)
-            return;
-        await updateEntry(entryId, data);
-        navigate(`/forms/${formId}/entries/${entryId}`);
     };
     if (loadingForm || (!isNew && loadingEntry)) {
         return (_jsx(Page, { title: "Loading...", children: _jsx(Card, { children: _jsx("div", { className: "py-10", children: "Loading\u2026" }) }) }));
@@ -259,7 +299,7 @@ export function EntryEdit({ id, entryId, onNavigate }) {
         ...(!isNew && entryId ? [{ label: `Entry ${entryId.slice(0, 8)}`, href: `/forms/${formId}/entries/${entryId}` }] : []),
         { label: isNew ? 'New' : 'Edit' },
     ];
-    return (_jsxs(Page, { title: form?.name ? `${isNew ? 'New' : 'Edit'} ${form.name}` : isNew ? 'New Entry' : 'Edit Entry', breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsx("div", { className: "flex items-center gap-2", children: _jsxs(Button, { variant: "primary", onClick: handleSubmit, disabled: saving, children: [_jsx(Save, { size: 16, className: "mr-2" }), isNew ? 'Create' : 'Save'] }) }), children: [saveError && (_jsx(Alert, { variant: "error", title: "Error saving", children: saveError.message })), _jsx(Modal, { open: refPicker.open, onClose: () => setRefPicker((p) => ({ ...p, open: false })), title: "Select reference", size: "lg", children: _jsxs("div", { className: "flex flex-col gap-4", children: [_jsx(Input, { label: "Search", value: refSearch, onChange: setRefSearch, placeholder: "Search\u2026" }), refError && (_jsx(Alert, { variant: "error", title: "Error", children: refError })), _jsx("div", { className: "max-h-[400px] overflow-y-auto flex flex-col gap-2", children: refLoading ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "Loading\u2026" })) : refItems.length === 0 ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "No results" })) : (refItems.map((item) => {
+    return (_jsxs(Page, { title: form?.name ? `${isNew ? 'New' : 'Edit'} ${form.name}` : isNew ? 'New Entry' : 'Edit Entry', breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsx("div", { className: "flex items-center gap-2", children: _jsxs(Button, { variant: "primary", onClick: handleSubmit, disabled: submitting, children: [_jsx(Save, { size: 16, className: "mr-2" }), submitting ? 'Saving...' : (isNew ? 'Create' : 'Save')] }) }), children: [error && (_jsx(Alert, { variant: "error", title: "Error saving", onClose: clearError, children: error.message })), _jsx(Modal, { open: refPicker.open, onClose: () => setRefPicker((p) => ({ ...p, open: false })), title: "Select reference", size: "lg", children: _jsxs("div", { className: "flex flex-col gap-4", children: [_jsx(Input, { label: "Search", value: refSearch, onChange: setRefSearch, placeholder: "Search\u2026" }), refError && (_jsx(Alert, { variant: "error", title: "Error", children: refError })), _jsx("div", { className: "max-h-[400px] overflow-y-auto flex flex-col gap-2", children: refLoading ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "Loading\u2026" })) : refItems.length === 0 ? (_jsx("div", { className: "py-4 text-center text-gray-500", children: "No results" })) : (refItems.map((item) => {
                                 const label = refPicker.displayFieldKey && item.data
                                     ? item.data[refPicker.displayFieldKey]
                                     : null;

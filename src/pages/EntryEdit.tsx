@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Save, ClipboardList, FileText } from 'lucide-react';
-import { useUi, type BreadcrumbItem } from '@hit/ui-kit';
+import { useUi, useFormSubmit, type BreadcrumbItem } from '@hit/ui-kit';
 import { useEntry, useEntryMutations, useForm } from '../hooks/useForms';
 
 interface Props {
@@ -18,7 +18,8 @@ export function EntryEdit({ id, entryId, onNavigate }: Props) {
 
   const { form, version, loading: loadingForm, error: formError } = useForm(formId);
   const { entry, loading: loadingEntry, error: loadError } = useEntry(formId, isNew ? undefined : entryId);
-  const { createEntry, updateEntry, loading: saving, error: saveError } = useEntryMutations(formId);
+  const { createEntry, updateEntry } = useEntryMutations(formId);
+  const { submitting, error, fieldErrors, submit, clearError, setFieldErrors, clearFieldError } = useFormSubmit();
 
   const navigate = (path: string) => {
     if (onNavigate) onNavigate(path);
@@ -49,7 +50,6 @@ export function EntryEdit({ id, entryId, onNavigate }: Props) {
       setDefaultsInitialized(true);
     }
   }, [isNew, fields, entry, defaultsInitialized]);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [refPicker, setRefPicker] = useState<{
     open: boolean;
     fieldKey: string | null;
@@ -116,16 +116,50 @@ export function EntryEdit({ id, entryId, onNavigate }: Props) {
         setEntityError(null);
         setEntityItems([]);
 
-        if (entityPicker.entityKind !== 'project') {
-          throw new Error(`Unsupported entity kind: ${entityPicker.entityKind}`);
-        }
-
         const qs = new URLSearchParams({
           page: '1',
           pageSize: '25',
           search: entitySearch,
         });
-        const res = await fetch(`/api/projects?${qs.toString()}`, {
+
+        const kind = String(entityPicker.entityKind || '').trim();
+        let url: string;
+        let extractRows: (json: any) => any[];
+        let toItem: (row: any) => { id: string; label: string };
+
+        if (kind === 'project') {
+          url = `/api/projects?${qs.toString()}`;
+          extractRows = (json: any) => (Array.isArray(json?.data) ? json.data : []);
+          toItem = (p: any) => ({
+            id: String(p?.id || ''),
+            label: String(p?.slug || p?.name || p?.id || ''),
+          });
+        } else if (kind === 'crm_contact') {
+          url = `/api/crm/contacts?${qs.toString()}`;
+          extractRows = (json: any) => (Array.isArray(json?.items) ? json.items : []);
+          toItem = (c: any) => ({
+            id: String(c?.id || ''),
+            label: String(c?.name || c?.email || c?.id || ''),
+          });
+        } else if (kind === 'crm_company') {
+          url = `/api/crm/companies?${qs.toString()}`;
+          extractRows = (json: any) => (Array.isArray(json?.items) ? json.items : []);
+          toItem = (c: any) => ({
+            id: String(c?.id || ''),
+            label: String(c?.name || c?.id || ''),
+          });
+        } else if (kind === 'crm_opportunity') {
+          url = `/api/crm/opportunities?${qs.toString()}`;
+          extractRows = (json: any) => (Array.isArray(json?.items) ? json.items : []);
+          toItem = (o: any) => ({
+            id: String(o?.id || ''),
+            label: String(o?.name || o?.title || o?.id || ''),
+          });
+        } else {
+          throw new Error(`Unsupported entity kind: ${kind}`);
+        }
+
+        const res = await fetch(url, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         });
@@ -134,13 +168,10 @@ export function EntryEdit({ id, entryId, onNavigate }: Props) {
           throw new Error(err.error || err.message || res.statusText);
         }
         const json = await res.json();
-        const rows = Array.isArray(json?.data) ? json.data : [];
+        const rows = extractRows(json);
         setEntityItems(
           rows
-            .map((p: any) => ({
-              id: String(p?.id || ''),
-              label: String(p?.slug || p?.name || p?.id || ''),
-            }))
+            .map(toItem)
             .filter((x: any) => x.id && x.label),
         );
       } catch (e: any) {
@@ -407,15 +438,23 @@ export function EntryEdit({ id, entryId, onNavigate }: Props) {
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    if (isNew) {
-      const created = await createEntry(data);
-      navigate(`/forms/${formId}/entries/${created.id}`);
-      return;
-    }
+    const result = await submit(async () => {
+      if (isNew) {
+        const created = await createEntry(data);
+        return { id: created.id };
+      }
 
-    if (!entryId) return;
-    await updateEntry(entryId, data);
-    navigate(`/forms/${formId}/entries/${entryId}`);
+      if (!entryId) throw new Error('Invalid state');
+      await updateEntry(entryId, data);
+      return { id: entryId };
+    });
+
+    if (result && typeof result === 'object' && result !== null) {
+      const resultWithId = result as { id?: string };
+      if (resultWithId.id) {
+        navigate(`/forms/${formId}/entries/${resultWithId.id}`);
+      }
+    }
   };
 
   if (loadingForm || (!isNew && loadingEntry)) {
@@ -479,16 +518,16 @@ export function EntryEdit({ id, entryId, onNavigate }: Props) {
       onNavigate={navigate}
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="primary" onClick={handleSubmit} disabled={saving}>
+          <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
             <Save size={16} className="mr-2" />
-            {isNew ? 'Create' : 'Save'}
+            {submitting ? 'Saving...' : (isNew ? 'Create' : 'Save')}
           </Button>
         </div>
       }
     >
-      {saveError && (
-        <Alert variant="error" title="Error saving">
-          {saveError.message}
+      {error && (
+        <Alert variant="error" title="Error saving" onClose={clearError}>
+          {error.message}
         </Alert>
       )}
 

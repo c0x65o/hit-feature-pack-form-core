@@ -2,7 +2,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Plus, Save, ClipboardList, FileText, Share2, Eye, Star, Trash2, Edit2, BarChart3 } from 'lucide-react';
-import { TableViewSharingPanel, useUi, useTableView, } from '@hit/ui-kit';
+import { TableViewSharingPanel, useUi, useTableView, useFormSubmit, } from '@hit/ui-kit';
 import { useForms, useForm, useFormMutations, } from '../hooks/useForms';
 import { FormAclModal } from '../components/FormAclModal';
 function slugify(input) {
@@ -16,7 +16,8 @@ export function FormBuilder({ id, onNavigate }) {
     const { Page, Card, Button, Input, TextArea, Select, Alert, Modal } = useUi();
     const isNew = !id || id === 'new';
     const { form, version, loading: loadingForm, error: loadError, refresh } = useForm(isNew ? undefined : id);
-    const { createForm, saveForm, loading: saving, error: saveError } = useFormMutations();
+    const { createForm, saveForm } = useFormMutations();
+    const { submitting: saving, error: formError, submit, clearError, setError } = useFormSubmit();
     const { data: allForms } = useForms({ page: 1, pageSize: 200 });
     // Table views for entries list
     const tableId = id && !isNew ? `form.${id}` : '';
@@ -40,7 +41,6 @@ export function FormBuilder({ id, onNavigate }) {
     const [navParentPath, setNavParentPath] = useState('');
     const [availableNavPaths, setAvailableNavPaths] = useState([]);
     const [fields, setFields] = useState([]);
-    const [localError, setLocalError] = useState(null);
     const [showAclModal, setShowAclModal] = useState(false);
     // Views configuration - for managing list views
     const [showViewBuilder, setShowViewBuilder] = useState(false);
@@ -170,13 +170,12 @@ export function FormBuilder({ id, onNavigate }) {
         setFields(next);
     };
     const handleSave = async () => {
-        setLocalError(null);
         if (!name.trim()) {
-            setLocalError('Name is required');
+            setError('Name is required');
             return;
         }
         if (isNew) {
-            try {
+            const result = await submit(async () => {
                 const created = await createForm({
                     name: name.trim(),
                     slug: slug.trim() || slugify(name),
@@ -189,17 +188,19 @@ export function FormBuilder({ id, onNavigate }) {
                     navIcon: navIcon.trim() || undefined,
                     navParentPath: navPlacement === 'custom' ? navParentPath : undefined,
                 });
-                navigate(`/forms/${created.id}`);
-                return;
+                return { id: created.id };
+            });
+            if (result && typeof result === 'object' && result !== null) {
+                const resultWithId = result;
+                if (resultWithId.id) {
+                    navigate(`/forms/${resultWithId.id}`);
+                }
             }
-            catch (e) {
-                setLocalError(e?.message || 'Failed to create form');
-                return;
-            }
+            return;
         }
         if (!id)
             return;
-        try {
+        const result = await submit(async () => {
             await saveForm(id, {
                 name: name.trim(),
                 description: description.trim() || undefined,
@@ -215,10 +216,10 @@ export function FormBuilder({ id, onNavigate }) {
                     listConfig: metricsConfig.length > 0 ? { metricsConfig: { panels: metricsConfig } } : undefined,
                 },
             });
+            return { success: true };
+        });
+        if (result) {
             await refresh();
-        }
-        catch (e) {
-            setLocalError(e?.message || 'Failed to save form');
         }
     };
     if (!isNew && loadingForm) {
@@ -232,7 +233,7 @@ export function FormBuilder({ id, onNavigate }) {
         ...(!isNew && form ? [{ label: form.name, icon: _jsx(FileText, { size: 14 }) }] : []),
         { label: isNew ? 'New' : 'Edit' },
     ];
-    return (_jsxs(Page, { title: isNew ? 'New Form' : 'Edit Form', description: isNew ? 'Create a new runtime form' : `Form definition`, breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsxs("div", { className: "flex items-center gap-2", children: [!isNew && (_jsx(Button, { variant: "secondary", onClick: () => navigate(`/forms/${id}/entries`), children: "View Entries" })), !isNew && (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { size: 16, className: "mr-2" }), "Share"] })), _jsxs(Button, { variant: "primary", onClick: () => handleSave(), disabled: saving, children: [_jsx(Save, { size: 16, className: "mr-2" }), "Save"] })] }), children: [(saveError || localError) && (_jsx(Alert, { variant: "error", title: "Error saving", children: localError || saveError?.message })), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx(Input, { label: "Name", value: name, onChange: setName, placeholder: "e.g. Customer Intake", required: true }), _jsx(Input, { label: "Slug", value: slug, onChange: setSlug, placeholder: "e.g. customer-intake" }), _jsx(TextArea, { label: "Description", value: description, onChange: setDescription, rows: 3 })] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-4", children: [_jsx("div", { className: "text-lg font-semibold", children: "Sharing & Access" }), _jsx("p", { className: "text-sm text-gray-500", children: "Only you can access this form unless you add others below. Admins can always access all forms." }), isNew ? (_jsx("p", { className: "text-sm text-amber-600", children: "Save the form first to configure access permissions." })) : (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { className: "w-4 h-4 mr-2" }), "Manage Access"] }))] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx("div", { className: "text-lg font-semibold", children: "Navigation" }), _jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: navShow, onChange: (e) => setNavShow(e.target.checked) }), "Show in navigation (for users with access)"] }), _jsx(Select, { label: "Placement", value: navPlacement, onChange: (v) => {
+    return (_jsxs(Page, { title: isNew ? 'New Form' : 'Edit Form', description: isNew ? 'Create a new runtime form' : `Form definition`, breadcrumbs: breadcrumbs, onNavigate: navigate, actions: _jsxs("div", { className: "flex items-center gap-2", children: [!isNew && (_jsx(Button, { variant: "secondary", onClick: () => navigate(`/forms/${id}/entries`), children: "View Entries" })), !isNew && (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { size: 16, className: "mr-2" }), "Share"] })), _jsxs(Button, { variant: "primary", onClick: () => handleSave(), disabled: saving, children: [_jsx(Save, { size: 16, className: "mr-2" }), "Save"] })] }), children: [formError && (_jsx(Alert, { variant: "error", title: "Error saving", onClose: clearError, children: formError.message })), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx(Input, { label: "Name", value: name, onChange: setName, placeholder: "e.g. Customer Intake", required: true }), _jsx(Input, { label: "Slug", value: slug, onChange: setSlug, placeholder: "e.g. customer-intake" }), _jsx(TextArea, { label: "Description", value: description, onChange: setDescription, rows: 3 })] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-4", children: [_jsx("div", { className: "text-lg font-semibold", children: "Sharing & Access" }), _jsx("p", { className: "text-sm text-gray-500", children: "Only you can access this form unless you add others below. Admins can always access all forms." }), isNew ? (_jsx("p", { className: "text-sm text-amber-600", children: "Save the form first to configure access permissions." })) : (_jsxs(Button, { variant: "secondary", onClick: () => setShowAclModal(true), children: [_jsx(Share2, { className: "w-4 h-4 mr-2" }), "Manage Access"] }))] }) }), _jsx(Card, { children: _jsxs("div", { className: "space-y-6", children: [_jsx("div", { className: "text-lg font-semibold", children: "Navigation" }), _jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: navShow, onChange: (e) => setNavShow(e.target.checked) }), "Show in navigation (for users with access)"] }), _jsx(Select, { label: "Placement", value: navPlacement, onChange: (v) => {
                                 setNavPlacement(v);
                                 if (v !== 'custom')
                                     setNavParentPath('');
@@ -414,6 +415,9 @@ export function FormBuilder({ id, onNavigate }) {
                                                     setFields(next);
                                                 }, options: [
                                                     { value: 'project', label: 'Project' },
+                                                    { value: 'crm_contact', label: 'CRM Contact' },
+                                                    { value: 'crm_company', label: 'CRM Company' },
+                                                    { value: 'crm_opportunity', label: 'CRM Opportunity' },
                                                 ] }), _jsxs("label", { className: "text-sm flex items-center gap-2", children: [_jsx("input", { type: "checkbox", checked: Boolean(f.config?.entity?.multi), onChange: (e) => {
                                                             const next = [...fields];
                                                             const prevCfg = next[idx].config || {};

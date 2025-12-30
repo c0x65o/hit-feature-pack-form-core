@@ -6,6 +6,7 @@ import {
   TableViewSharingPanel,
   useUi,
   useTableView,
+  useFormSubmit,
   type BreadcrumbItem,
   type TableView,
   type TableViewFilter,
@@ -38,7 +39,8 @@ export function FormBuilder({ id, onNavigate }: Props) {
   const isNew = !id || id === 'new';
 
   const { form, version, loading: loadingForm, error: loadError, refresh } = useForm(isNew ? undefined : id);
-  const { createForm, saveForm, loading: saving, error: saveError } = useFormMutations();
+  const { createForm, saveForm } = useFormMutations();
+  const { submitting: saving, error: formError, submit, clearError, setError } = useFormSubmit();
   const { data: allForms } = useForms({ page: 1, pageSize: 200 });
   
   // Table views for entries list
@@ -76,7 +78,6 @@ export function FormBuilder({ id, onNavigate }: Props) {
   const [availableNavPaths, setAvailableNavPaths] = useState<Array<{ path: string; label: string; depth: number }>>([]);
 
   const [fields, setFields] = useState<any[]>([]);
-  const [localError, setLocalError] = useState<string | null>(null);
   const [showAclModal, setShowAclModal] = useState(false);
   
   // Views configuration - for managing list views
@@ -222,14 +223,13 @@ export function FormBuilder({ id, onNavigate }: Props) {
   };
 
   const handleSave = async () => {
-    setLocalError(null);
     if (!name.trim()) {
-      setLocalError('Name is required');
+      setError('Name is required');
       return;
     }
 
     if (isNew) {
-      try {
+      const result = await submit(async () => {
         const created = await createForm({
           name: name.trim(),
           slug: slug.trim() || slugify(name),
@@ -242,17 +242,21 @@ export function FormBuilder({ id, onNavigate }: Props) {
           navIcon: navIcon.trim() || undefined,
           navParentPath: navPlacement === 'custom' ? navParentPath : undefined,
         });
-        navigate(`/forms/${created.id}`);
-        return;
-      } catch (e: any) {
-        setLocalError(e?.message || 'Failed to create form');
-        return;
+        return { id: created.id };
+      });
+
+      if (result && typeof result === 'object' && result !== null) {
+        const resultWithId = result as { id?: string };
+        if (resultWithId.id) {
+          navigate(`/forms/${resultWithId.id}`);
+        }
       }
+      return;
     }
 
     if (!id) return;
 
-    try {
+    const result = await submit(async () => {
       await saveForm(id, {
         name: name.trim(),
         description: description.trim() || undefined,
@@ -268,9 +272,11 @@ export function FormBuilder({ id, onNavigate }: Props) {
           listConfig: metricsConfig.length > 0 ? { metricsConfig: { panels: metricsConfig } } : undefined,
         },
       } as any);
+      return { success: true };
+    });
+
+    if (result) {
       await refresh();
-    } catch (e: any) {
-      setLocalError(e?.message || 'Failed to save form');
     }
   };
 
@@ -334,9 +340,9 @@ export function FormBuilder({ id, onNavigate }: Props) {
         </div>
       }
     >
-      {(saveError || localError) && (
-        <Alert variant="error" title="Error saving">
-          {localError || saveError?.message}
+      {formError && (
+        <Alert variant="error" title="Error saving" onClose={clearError}>
+          {formError.message}
         </Alert>
       )}
 
@@ -765,6 +771,9 @@ export function FormBuilder({ id, onNavigate }: Props) {
                     }}
                     options={[
                       { value: 'project', label: 'Project' },
+                      { value: 'crm_contact', label: 'CRM Contact' },
+                      { value: 'crm_company', label: 'CRM Company' },
+                      { value: 'crm_opportunity', label: 'CRM Opportunity' },
                     ]}
                   />
                   <label className="text-sm flex items-center gap-2">
