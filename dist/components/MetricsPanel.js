@@ -196,6 +196,7 @@ function GroupCurrentValue(props) {
     useEffect(() => {
         let cancelled = false;
         async function run() {
+            const start = props.start;
             const end = props.end;
             const ids = props.entityIds;
             if (!end || !props.metricKey || ids.length === 0) {
@@ -211,6 +212,7 @@ function GroupCurrentValue(props) {
                     metricKey: props.metricKey,
                     bucket: 'none',
                     agg: props.agg || 'last',
+                    ...(start ? { start: toDateInput(start) } : {}),
                     end: toDateInput(end),
                     entityKind: props.entityKind,
                     entityIds: ids,
@@ -240,7 +242,7 @@ function GroupCurrentValue(props) {
         return () => {
             cancelled = true;
         };
-    }, [props.entityKind, JSON.stringify(props.entityIds), props.metricKey, props.end?.toISOString(), props.agg]);
+    }, [props.entityKind, JSON.stringify(props.entityIds), props.metricKey, props.start?.toISOString(), props.end?.toISOString(), props.agg]);
     if (loading)
         return _jsx("span", { className: props.className || 'text-sm text-muted-foreground', children: "\u2026" });
     if (value === null)
@@ -366,7 +368,7 @@ export function MetricsPanel(props) {
                     .filter(Boolean);
                 return (_jsxs(Card, { children: [_jsxs("button", { type: "button", className: "w-full flex items-center justify-between gap-4 text-left", onClick: () => toggleGroup(g.key), children: [_jsxs("div", { className: "flex items-center gap-3 min-w-0", children: [_jsx("span", { className: "text-muted-foreground", children: chevron }), _jsx("div", { className: "h-9 w-9 rounded-lg flex items-center justify-center shrink-0", style: chipColor
                                                 ? { backgroundColor: `${chipColor}1A`, border: `1px solid ${chipColor}40` }
-                                                : { backgroundColor: 'var(--hit-muted, rgba(148,163,184,0.18))' }, children: Icon ? (_jsx("span", { style: chipColor ? { color: chipColor, display: 'inline-flex' } : { display: 'inline-flex' }, children: _jsx(Icon, { size: 18, className: chipColor ? undefined : 'text-muted-foreground' }) })) : (_jsx("span", { className: "text-xs text-muted-foreground", children: "\u2014" })) }), _jsxs("div", { className: "min-w-0", children: [_jsxs("div", { className: "flex items-center gap-2 min-w-0", children: [_jsx("div", { className: "font-semibold truncate", children: g.label }), _jsx("span", { className: "inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground shrink-0", children: g.panels.length })] }), _jsxs("div", { className: "text-xs text-muted-foreground truncate", children: [subtitleNames.join(' · '), g.panels.length > 2 ? ` · +${g.panels.length - 2}` : ''] })] })] }), _jsx("div", { className: "flex items-center gap-3", children: _jsxs("div", { className: "hidden lg:flex items-center gap-2", children: [chipPanels.map((p, idx) => (_jsxs("div", { className: "px-2 py-1 rounded-full bg-muted/50 text-xs flex items-center gap-2", children: [_jsx("span", { className: "text-muted-foreground truncate max-w-[140px]", children: String(p.title || p.metricKey) }), _jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: groupEntityIds, metricKey: p.metricKey, end: range?.end, unit: catalogByKey[p.metricKey]?.unit, agg: (p.agg || 'last'), className: "text-xs font-semibold tabular-nums", placeholder: "\u2014" })] }, `${g.key}.chip.${p.metricKey}.${idx}`))), remainingCount > 0 ? (_jsxs("span", { className: "text-xs text-muted-foreground", children: ["+", remainingCount] })) : null] }) })] }), isOpen ? (_jsx("div", { className: "mt-4 space-y-4", children: g.panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${g.key}.${p.metricKey}.${idx}`))) })) : null] }, `group.${g.key}`));
+                                                : { backgroundColor: 'var(--hit-muted, rgba(148,163,184,0.18))' }, children: Icon ? (_jsx("span", { style: chipColor ? { color: chipColor, display: 'inline-flex' } : { display: 'inline-flex' }, children: _jsx(Icon, { size: 18, className: chipColor ? undefined : 'text-muted-foreground' }) })) : (_jsx("span", { className: "text-xs text-muted-foreground", children: "\u2014" })) }), _jsxs("div", { className: "min-w-0", children: [_jsxs("div", { className: "flex items-center gap-2 min-w-0", children: [_jsx("div", { className: "font-semibold truncate", children: g.label }), _jsx("span", { className: "inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground shrink-0", children: g.panels.length })] }), _jsxs("div", { className: "text-xs text-muted-foreground truncate", children: [subtitleNames.join(' · '), g.panels.length > 2 ? ` · +${g.panels.length - 2}` : ''] })] })] }), _jsx("div", { className: "flex items-center gap-3", children: _jsxs("div", { className: "hidden lg:flex items-center gap-2", children: [chipPanels.map((p, idx) => (_jsxs("div", { className: "px-2 py-1 rounded-full bg-muted/50 text-xs flex items-center gap-2", children: [_jsx("span", { className: "text-muted-foreground truncate max-w-[140px]", children: String(p.title || p.metricKey) }), _jsx(GroupCurrentValue, { entityKind: props.entityKind, entityIds: groupEntityIds, metricKey: p.metricKey, start: range?.start, end: range?.end, unit: catalogByKey[p.metricKey]?.unit, agg: (p.agg || 'last'), className: "text-xs font-semibold tabular-nums", placeholder: "\u2014" })] }, `${g.key}.chip.${p.metricKey}.${idx}`))), remainingCount > 0 ? (_jsxs("span", { className: "text-xs text-muted-foreground", children: ["+", remainingCount] })) : null] }) })] }), isOpen ? (_jsx("div", { className: "mt-4 space-y-4", children: g.panels.map((p, idx) => (_jsx(MetricsPanelItem, { entityKind: props.entityKind, entityId: props.entityId, entityIds: props.entityIds, panel: p, range: range, unit: catalogByKey[p.metricKey]?.unit }, `${g.key}.${p.metricKey}.${idx}`))) })) : null] }, `group.${g.key}`));
             })] }));
 }
 function MetricsPanelItem(props) {
