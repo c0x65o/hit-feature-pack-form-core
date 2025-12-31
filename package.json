@@ -1,6 +1,6 @@
 {
   "name": "@hit/feature-pack-forms",
-  "version": "1.0.47",
+  "version": "1.0.48",
   "description": "Runtime Forms feature pack with builder + CRUD entries + search + reference linking. Uses @hit/ui-kit for shell-agnostic UI.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -49,7 +49,7 @@
     "next": "^15.5.9",
     "react": "^19.2.3",
     "recharts": "^2.12.7",
-    "zod": "^4.2.1"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@hit/acl-utils": "github:c0x65o/hit-acl-utils#cfa9481d9da5b1a73642efc56fa3ca76cb6b7cac",
@@ -62,7 +62,7 @@
     "next": "^15.5.9",
     "recharts": "^2.12.7",
     "typescript": "^5",
-    "zod": "^4.2.1"
+    "zod": "^4.0.0"
   },
   "keywords": [
     "hit",
