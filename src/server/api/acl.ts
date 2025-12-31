@@ -2,9 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { formsAcls, forms } from '@/lib/feature-pack-schemas';
-import { eq, desc, and, or } from 'drizzle-orm';
+import { eq, desc, and, or, inArray } from 'drizzle-orm';
 import { extractUserFromRequest } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
+import { resolveUserPrincipals, type ResolvedUserPrincipals } from '@hit/acl-utils';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -41,7 +42,7 @@ function extractAclId(request: NextRequest): string | null {
  * Check if user is admin
  */
 function isAdmin(roles: string[]): boolean {
-  return roles.includes('admin') || roles.includes('Admin');
+  return Array.isArray(roles) && roles.some((r) => String(r || '').toLowerCase() === 'admin');
 }
 
 /**
@@ -50,15 +51,24 @@ function isAdmin(roles: string[]): boolean {
 async function canManageAcls(
   db: ReturnType<typeof getDb>,
   formId: string,
-  userId: string,
-  roles: string[]
+  principals: ResolvedUserPrincipals
 ): Promise<boolean> {
   // Admins can always manage ACLs
-  if (isAdmin(roles)) return true;
+  if (isAdmin(principals.roles || [])) return true;
 
-  // Check ACL entries for MANAGE_ACL permission
-  const principalIds = [userId, ...roles].filter(Boolean);
-  if (principalIds.length === 0) return false;
+  // Check ACL entries for MANAGE_ACL permission across user+email, roles, and groups.
+  const userId = principals.userId;
+  const userEmail = principals.userEmail || '';
+  const roles = principals.roles || [];
+  const groupIds = principals.groupIds || [];
+
+  const conds = [];
+  if (userId) conds.push(and(eq(formsAcls.principalType, 'user'), eq(formsAcls.principalId, userId)));
+  if (userEmail) conds.push(and(eq(formsAcls.principalType, 'user'), eq(formsAcls.principalId, userEmail)));
+  if (roles.length > 0) conds.push(and(eq(formsAcls.principalType, 'role'), inArray(formsAcls.principalId, roles)));
+  if (groupIds.length > 0) conds.push(and(eq(formsAcls.principalType, 'group'), inArray(formsAcls.principalId, groupIds)));
+
+  if (conds.length === 0) return false;
 
   const aclEntries = await db
     .select()
@@ -66,7 +76,7 @@ async function canManageAcls(
     .where(
       and(
         eq(formsAcls.formId, formId),
-        or(...principalIds.map((id) => eq(formsAcls.principalId, id)))
+        or(...conds)
       )
     );
 
@@ -101,7 +111,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Check access
-    const hasAccess = await canManageAcls(db, formId, user.sub, user.roles || []);
+    const principals = await resolveUserPrincipals({ request, user });
+    const hasAccess = await canManageAcls(db, formId, principals);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
@@ -154,7 +165,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check access
-    const hasAccess = await canManageAcls(db, formId, user.sub, user.roles || []);
+    const principals = await resolveUserPrincipals({ request, user });
+    const hasAccess = await canManageAcls(db, formId, principals);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
@@ -231,7 +243,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check access
-    const hasAccess = await canManageAcls(db, formId, user.sub, user.roles || []);
+    const principals = await resolveUserPrincipals({ request, user });
+    const hasAccess = await canManageAcls(db, formId, principals);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }

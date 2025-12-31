@@ -2,9 +2,10 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { formsAcls, forms } from '@/lib/feature-pack-schemas';
-import { eq, desc, and, or } from 'drizzle-orm';
+import { eq, desc, and, or, inArray } from 'drizzle-orm';
 import { extractUserFromRequest } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
+import { resolveUserPrincipals } from '@hit/acl-utils';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 /**
@@ -35,23 +36,35 @@ function extractAclId(request) {
  * Check if user is admin
  */
 function isAdmin(roles) {
-    return roles.includes('admin') || roles.includes('Admin');
+    return Array.isArray(roles) && roles.some((r) => String(r || '').toLowerCase() === 'admin');
 }
 /**
  * Check if user can manage ACLs (admin or has MANAGE_ACL permission)
  */
-async function canManageAcls(db, formId, userId, roles) {
+async function canManageAcls(db, formId, principals) {
     // Admins can always manage ACLs
-    if (isAdmin(roles))
+    if (isAdmin(principals.roles || []))
         return true;
-    // Check ACL entries for MANAGE_ACL permission
-    const principalIds = [userId, ...roles].filter(Boolean);
-    if (principalIds.length === 0)
+    // Check ACL entries for MANAGE_ACL permission across user+email, roles, and groups.
+    const userId = principals.userId;
+    const userEmail = principals.userEmail || '';
+    const roles = principals.roles || [];
+    const groupIds = principals.groupIds || [];
+    const conds = [];
+    if (userId)
+        conds.push(and(eq(formsAcls.principalType, 'user'), eq(formsAcls.principalId, userId)));
+    if (userEmail)
+        conds.push(and(eq(formsAcls.principalType, 'user'), eq(formsAcls.principalId, userEmail)));
+    if (roles.length > 0)
+        conds.push(and(eq(formsAcls.principalType, 'role'), inArray(formsAcls.principalId, roles)));
+    if (groupIds.length > 0)
+        conds.push(and(eq(formsAcls.principalType, 'group'), inArray(formsAcls.principalId, groupIds)));
+    if (conds.length === 0)
         return false;
     const aclEntries = await db
         .select()
         .from(formsAcls)
-        .where(and(eq(formsAcls.formId, formId), or(...principalIds.map((id) => eq(formsAcls.principalId, id)))));
+        .where(and(eq(formsAcls.formId, formId), or(...conds)));
     if (aclEntries.length === 0)
         return false;
     const allPermissions = aclEntries.flatMap((e) => e.permissions || []);
@@ -79,7 +92,8 @@ export async function GET(request) {
             return NextResponse.json({ error: 'Form not found' }, { status: 404 });
         }
         // Check access
-        const hasAccess = await canManageAcls(db, formId, user.sub, user.roles || []);
+        const principals = await resolveUserPrincipals({ request, user });
+        const hasAccess = await canManageAcls(db, formId, principals);
         if (!hasAccess) {
             return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
         }
@@ -122,7 +136,8 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Form not found' }, { status: 404 });
         }
         // Check access
-        const hasAccess = await canManageAcls(db, formId, user.sub, user.roles || []);
+        const principals = await resolveUserPrincipals({ request, user });
+        const hasAccess = await canManageAcls(db, formId, principals);
         if (!hasAccess) {
             return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
         }
@@ -183,7 +198,8 @@ export async function DELETE(request) {
             return NextResponse.json({ error: 'ACL does not belong to this form' }, { status: 400 });
         }
         // Check access
-        const hasAccess = await canManageAcls(db, formId, user.sub, user.roles || []);
+        const principals = await resolveUserPrincipals({ request, user });
+        const hasAccess = await canManageAcls(db, formId, principals);
         if (!hasAccess) {
             return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
         }

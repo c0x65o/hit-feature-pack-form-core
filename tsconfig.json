@@ -19,7 +19,8 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@/lib/*": ["./src/lib-stubs/*"]
+      "@/lib/*": ["./src/lib-stubs/*"],
+      "@hit/acl-utils": ["./src/lib-stubs/acl-utils"]
     }
   },
   "include": ["src/**/*"],
