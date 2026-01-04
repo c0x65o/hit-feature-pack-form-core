@@ -1,6 +1,6 @@
 {
   "name": "@hit/feature-pack-forms",
-  "version": "1.0.55",
+  "version": "1.0.56",
   "description": "Runtime Forms feature pack with builder + CRUD entries + search + reference linking. Uses @hit/ui-kit for shell-agnostic UI.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -39,7 +39,6 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "prepare": "npm run build",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
