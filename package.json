@@ -1,6 +1,6 @@
 {
   "name": "@hit/feature-pack-forms",
-  "version": "1.0.57",
+  "version": "1.0.58",
   "description": "Runtime Forms feature pack with builder + CRUD entries + search + reference linking. Uses @hit/ui-kit for shell-agnostic UI.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

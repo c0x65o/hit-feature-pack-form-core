@@ -16,6 +16,42 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
+/**
+ * Authenticated fetch helper that automatically injects the user's JWT
+ * from cookie or localStorage. This ensures metrics API calls work correctly.
+ */
+function uiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  // Get token from cookie first, then localStorage
+  let token: string | null = null;
+  try {
+    if (typeof document !== 'undefined') {
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'hit_token' && value) {
+          token = decodeURIComponent(value);
+          break;
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  if (!token) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        token = localStorage.getItem('hit_token') || localStorage.getItem('hit_auth_token');
+      }
+    } catch { /* ignore */ }
+  }
+
+  const headers = new Headers(init?.headers || undefined);
+  if (token && !headers.get('authorization') && !headers.get('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  return fetch(input, { ...init, headers, credentials: init?.credentials ?? 'include' });
+}
+
 type Bucket = 'none' | 'hour' | 'day' | 'week' | 'month';
 type Agg = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'last';
 
@@ -48,12 +84,6 @@ export type MetricsViewMetadata = {
     timelineOverlay?: boolean;
   }>;
 };
-
-function getAuthHeaders(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
-  const token = localStorage.getItem('hit_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 function toDateInput(d: Date): string {
   return d.toISOString();
@@ -116,7 +146,7 @@ async function fetchMetricsCatalogCached(): Promise<Record<string, MetricCatalog
   if (catalogInflight) return catalogInflight;
   catalogInflight = (async () => {
     try {
-      const res = await fetch('/api/metrics/catalog', { credentials: 'include', headers: { ...getAuthHeaders() } });
+      const res = await uiFetch('/api/metrics/catalog');
       if (!res.ok) return {};
       const json = await res.json().catch(() => null);
       const items: any[] = Array.isArray(json?.items) ? json.items : [];
@@ -144,10 +174,9 @@ async function fetchMetricsQueryCached(body: MetricsQueryBody): Promise<any[]> {
 
   const p = (async () => {
     try {
-      const res = await fetch('/api/metrics/query', {
+      const res = await uiFetch('/api/metrics/query', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       const json = (await res.json().catch(() => ({}))) as MetricsQueryResponse;
@@ -751,11 +780,7 @@ function MetricsPanelItem(props: {
           to: toDateInput(end),
           pageSize: '500',
         });
-        const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/activity?${qs.toString()}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: { ...getAuthHeaders() },
-        });
+        const res = await uiFetch(`/api/projects/${encodeURIComponent(projectId)}/activity?${qs.toString()}`);
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json?.error || `Failed (${res.status})`);
         const items = Array.isArray(json?.data) ? json.data : [];
