@@ -174,7 +174,6 @@ function toPascal(s: string): string {
 function resolveLucideIcon(name?: string) {
   const n = String(name || '').trim();
   if (!n) return null;
-  // Hard fail if configured icon is unknown.
   return resolveLucideIconStrict(toPascal(n));
 }
 
