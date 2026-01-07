@@ -1,6 +1,6 @@
 {
   "name": "@hit/feature-pack-forms",
-  "version": "1.0.61",
+  "version": "1.0.62",
   "description": "A HIT feature pack",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -54,7 +54,6 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "@hit/acl-utils": "*",
     "@hit/ui-kit": "*",
     "drizzle-orm": "^0.38.0",
     "drizzle-zod": ">=0.7.0",
@@ -65,8 +64,7 @@
     "zod": "^4.3.2"
   },
   "devDependencies": {
-    "@hit/acl-utils": "file:../hit-acl-utils",
-    "@hit/ui-kit": "file:../hit-ui-kit",
+    "@hit/ui-kit": "file:../../packages/hit-ui-kit-ts",
     "@types/node": "^20",
     "@types/react": "^19.0.0",
     "drizzle-orm": "^0.38.0",
