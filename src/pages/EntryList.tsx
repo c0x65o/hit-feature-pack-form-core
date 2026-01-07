@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useUi } from '@hit/ui-kit';
+import { useServerDataTableState } from '@hit/ui-kit';
 import { useEntries, useForm, useEntryMutations } from '../hooks/useForms';
 
 interface Props {
@@ -14,13 +15,21 @@ export function EntryList({ id, onNavigate }: Props) {
   const { Page, Card, Button, DataTable, Alert } = useUi();
   const formId = id as string;
 
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const [sortBy, setSortBy] = useState<string>('updatedAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [activeFilters, setActiveFilters] = useState<Array<{ field: string; operator: string; value: any }>>([]);
+  const serverTable = useServerDataTableState({
+    tableId: `form.${formId}`,
+    pageSize: 25,
+    initialSort: { sortBy: 'updatedAt', sortOrder: 'desc' },
+  });
+
   const { form, version } = useForm(formId);
-  const { data, loading, error, refresh } = useEntries({ formId, page, pageSize, sortBy, sortOrder });
+  const { data, loading, error, refresh } = useEntries({
+    formId,
+    page: serverTable.query.page,
+    pageSize: serverTable.query.pageSize,
+    search: serverTable.query.search,
+    sortBy: serverTable.query.sortBy,
+    sortOrder: serverTable.query.sortOrder,
+  });
   const { deleteEntry, loading: mutating } = useEntryMutations(formId);
 
   const navigate = (path: string) => {
@@ -32,26 +41,6 @@ export function EntryList({ id, onNavigate }: Props) {
     .filter((f) => !f.hidden && (f.showInTable !== false))
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     .slice(0, 10); // increased limit since we have explicit control
-
-  // Handle view filter changes
-  const handleViewFiltersChange = useCallback((filters: Array<{ field: string; operator: string; value: any }>) => {
-    setActiveFilters(filters);
-    // TODO: Apply filters to data fetching when server-side filtering is implemented
-  }, []);
-
-  // Handle sorting changes from view system
-  const handleViewSortingChange = useCallback((sorting: Array<{ id: string; desc?: boolean }>) => {
-    if (sorting.length > 0) {
-      const firstSort = sorting[0];
-      setSortBy(firstSort.id);
-      setSortOrder(firstSort.desc ? 'desc' : 'asc');
-      setPage(1); // Reset to first page when sorting changes
-    } else {
-      // Default sort
-      setSortBy('updatedAt');
-      setSortOrder('desc');
-    }
-  }, []);
 
   const parseSelectOptions = useCallback((f: any): Array<{ value: string; label: string }> => {
     // Support both optionsText (from seed files) and options array (from form builder)
@@ -233,24 +222,14 @@ export function EntryList({ id, onNavigate }: Props) {
           emptyMessage="No entries yet"
           loading={loading}
           searchable
-          pageSize={pageSize}
-          page={page}
           total={data?.pagination.total}
-          onPageChange={(newPage: number) => {
-            setPage(newPage);
-          }}
-          manualPagination
-          initialSorting={[{ id: sortBy, desc: sortOrder === 'desc' }]}
+          {...serverTable.dataTable}
+          initialSorting={[{ id: serverTable.query.sortBy, desc: serverTable.query.sortOrder === 'desc' }]}
+          searchDebounceMs={400}
           pageSizeOptions={[10, 25, 50, 100]}
-          onPageSizeChange={(newSize: number) => {
-            setPageSize(newSize);
-            setPage(1);
-          }}
           onRowClick={(row: any) => navigate(`/forms/${formId}/entries/${row.id}`)}
           tableId={`form.${formId}`}
           enableViews={true}
-          onViewFiltersChange={handleViewFiltersChange}
-          onViewSortingChange={handleViewSortingChange}
           onRefresh={refresh}
           refreshing={loading}
         />

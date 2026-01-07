@@ -110,8 +110,24 @@ export interface PaginatedResponse<T> {
  * List forms
  * @param adminMode - If true, lists ALL forms (requires admin role). Otherwise lists only forms user has READ ACL for.
  */
-export function useForms(options: { page?: number; pageSize?: number; search?: string; adminMode?: boolean } = {}) {
-  const { page = 1, pageSize = 25, search = '', adminMode = false } = options;
+export function useForms(
+  options: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    adminMode?: boolean;
+  } = {}
+) {
+  const {
+    page = 1,
+    pageSize = 25,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    adminMode = false,
+  } = options;
   const [data, setData] = useState<PaginatedResponse<FormRecord> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -124,6 +140,8 @@ export function useForms(options: { page?: number; pageSize?: number; search?: s
         pageSize: String(pageSize),
       });
       if (search) params.set('search', search);
+      if (sortBy) params.set('sortBy', sortBy);
+      if (sortOrder) params.set('sortOrder', sortOrder);
       if (adminMode) params.set('admin', 'true');
 
       const result = await fetchApi<PaginatedResponse<FormRecord>>(`?${params.toString()}`);
@@ -134,7 +152,7 @@ export function useForms(options: { page?: number; pageSize?: number; search?: s
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, adminMode]);
+  }, [page, pageSize, search, sortBy, sortOrder, adminMode]);
 
   useEffect(() => {
     refresh();

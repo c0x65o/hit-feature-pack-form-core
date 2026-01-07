@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Plus, Settings, Trash2, Users } from 'lucide-react';
 import { useUi } from '@hit/ui-kit';
+import { useServerDataTableState } from '@hit/ui-kit';
 import { useForms, useFormMutations } from '../hooks/useForms';
 
 interface Props {
@@ -11,10 +12,22 @@ interface Props {
 
 export function FormList({ onNavigate }: Props) {
   const { Page, Card, Button, DataTable, Alert } = useUi();
-  const [page, setPage] = useState(1);
+  const serverTable = useServerDataTableState({
+    tableId: 'forms',
+    pageSize: 25,
+    initialSort: { sortBy: 'updatedAt', sortOrder: 'desc' },
+    sortWhitelist: ['name', 'slug', 'createdAt', 'updatedAt'],
+  });
 
   // Admin mode: list ALL forms for management
-  const { data, loading, error, refresh } = useForms({ page, pageSize: 25, adminMode: true });
+  const { data, loading, error, refresh } = useForms({
+    page: serverTable.query.page,
+    pageSize: serverTable.query.pageSize,
+    search: serverTable.query.search,
+    sortBy: serverTable.query.sortBy,
+    sortOrder: serverTable.query.sortOrder,
+    adminMode: true,
+  });
   const { deleteForm, loading: mutating } = useFormMutations();
 
   const navigate = (path: string) => {
@@ -101,7 +114,9 @@ export function FormList({ onNavigate }: Props) {
           emptyMessage="No forms yet. Create your first form to get started."
           loading={loading}
           searchable
-          pageSize={25}
+          total={data?.pagination?.total}
+          {...serverTable.dataTable}
+          searchDebounceMs={400}
           onRefresh={refresh}
           refreshing={loading}
           tableId="forms"
