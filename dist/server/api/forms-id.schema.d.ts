@@ -1,0 +1,39 @@
+import { z } from "zod";
+export declare const putBodySchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    navShow: z.ZodOptional<z.ZodBoolean>;
+    navPlacement: z.ZodOptional<z.ZodString>;
+    navGroup: z.ZodOptional<z.ZodString>;
+    navWeight: z.ZodOptional<z.ZodNumber>;
+    navLabel: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    navIcon: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    navParentPath: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    fields: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        id: z.ZodOptional<z.ZodString>;
+        key: z.ZodString;
+        label: z.ZodString;
+        type: z.ZodString;
+        order: z.ZodOptional<z.ZodNumber>;
+        hidden: z.ZodOptional<z.ZodBoolean>;
+        required: z.ZodOptional<z.ZodBoolean>;
+        config: z.ZodOptional<z.ZodNullable<z.ZodAny>>;
+        defaultValue: z.ZodOptional<z.ZodNullable<z.ZodAny>>;
+    }, z.core.$strip>>>;
+    draft: z.ZodOptional<z.ZodObject<{
+        fields: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodOptional<z.ZodString>;
+            key: z.ZodString;
+            label: z.ZodString;
+            type: z.ZodString;
+            order: z.ZodOptional<z.ZodNumber>;
+            hidden: z.ZodOptional<z.ZodBoolean>;
+            required: z.ZodOptional<z.ZodBoolean>;
+            config: z.ZodOptional<z.ZodNullable<z.ZodAny>>;
+            defaultValue: z.ZodOptional<z.ZodNullable<z.ZodAny>>;
+        }, z.core.$strip>>>;
+        listConfig: z.ZodOptional<z.ZodAny>;
+    }, z.core.$strip>>;
+    listConfig: z.ZodOptional<z.ZodAny>;
+}, z.core.$strip>;
+//# sourceMappingURL=forms-id.schema.d.ts.map
