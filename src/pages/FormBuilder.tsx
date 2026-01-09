@@ -2,17 +2,12 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Plus, Save, ClipboardList, FileText, Share2, Eye, Star, Trash2, Edit2, BarChart3 } from 'lucide-react';
-import {
-  TableViewSharingPanel,
-  useUi,
-  useTableView,
-  useFormSubmit,
-  type BreadcrumbItem,
-  type TableView,
-  type TableViewFilter,
-  type TableViewShare,
-  type TableViewShareRecipient,
-} from '@hit/ui-kit';
+import type { BreadcrumbItem, TableViewShareRecipient } from '@hit/ui-kit';
+import { useUi } from '@hit/ui-kit';
+import { TableViewSharingPanel } from '@hit/ui-kit/components/TableViewSharingPanel';
+import { useFormSubmit } from '@hit/ui-kit/hooks/useFormSubmit';
+import type { TableView, TableViewFilter, TableViewShare } from '@hit/ui-kit/hooks/useTableView';
+import { useTableView } from '@hit/ui-kit/hooks/useTableView';
 import {
   FieldType,
   useForms,

@@ -2,7 +2,9 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Save, ClipboardList, FileText } from 'lucide-react';
-import { useUi, useFormSubmit, type BreadcrumbItem } from '@hit/ui-kit';
+import type { BreadcrumbItem } from '@hit/ui-kit';
+import { useUi } from '@hit/ui-kit';
+import { useFormSubmit } from '@hit/ui-kit/hooks/useFormSubmit';
 import { useEntry, useEntryMutations, useForm } from '../hooks/useForms';
 
 interface Props {

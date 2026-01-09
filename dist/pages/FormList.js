@@ -3,7 +3,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useMemo } from 'react';
 import { Plus, Settings, Trash2, Users } from 'lucide-react';
 import { useUi } from '@hit/ui-kit';
-import { useServerDataTableState } from '@hit/ui-kit';
+import { useServerDataTableState } from '@hit/ui-kit/hooks/useServerDataTableState';
 import { useForms, useFormMutations } from '../hooks/useForms';
 export function FormList({ onNavigate }) {
     const { Page, Card, Button, DataTable, Alert } = useUi();

@@ -2,7 +2,10 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Plus, Save, ClipboardList, FileText, Share2, Eye, Star, Trash2, Edit2, BarChart3 } from 'lucide-react';
-import { TableViewSharingPanel, useUi, useTableView, useFormSubmit, } from '@hit/ui-kit';
+import { useUi } from '@hit/ui-kit';
+import { TableViewSharingPanel } from '@hit/ui-kit/components/TableViewSharingPanel';
+import { useFormSubmit } from '@hit/ui-kit/hooks/useFormSubmit';
+import { useTableView } from '@hit/ui-kit/hooks/useTableView';
 import { useForms, useForm, useFormMutations, } from '../hooks/useForms';
 import { FormAclModal } from '../components/FormAclModal';
 function slugify(input) {

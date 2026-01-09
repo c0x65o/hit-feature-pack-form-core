@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { Plus, Settings, Trash2, Users } from 'lucide-react';
 import { useUi } from '@hit/ui-kit';
-import { useServerDataTableState } from '@hit/ui-kit';
+import { useServerDataTableState } from '@hit/ui-kit/hooks/useServerDataTableState';
 import { useForms, useFormMutations } from '../hooks/useForms';
 
 interface Props {

@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { ArrowLeft, Edit, Trash2, ClipboardList, FileText } from 'lucide-react';
-import { useUi, type BreadcrumbItem } from '@hit/ui-kit';
+import type { BreadcrumbItem } from '@hit/ui-kit';
+import { useUi } from '@hit/ui-kit';
 import { useEntry, useForm, useEntryMutations } from '../hooks/useForms';
 
 interface Props {

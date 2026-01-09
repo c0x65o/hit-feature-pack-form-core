@@ -3,7 +3,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useCallback, useMemo } from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useUi } from '@hit/ui-kit';
-import { useServerDataTableState } from '@hit/ui-kit';
+import { useServerDataTableState } from '@hit/ui-kit/hooks/useServerDataTableState';
 import { useEntries, useForm, useEntryMutations } from '../hooks/useForms';
 export function EntryList({ id, onNavigate }) {
     const { Page, Card, Button, DataTable, Alert } = useUi();

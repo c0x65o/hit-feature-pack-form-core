@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useUi } from '@hit/ui-kit';
-import { AclPicker, type AclPickerConfig, type AclEntry } from '@hit/ui-kit';
+import type { AclEntry, AclPickerConfig } from '@hit/ui-kit';
+import { AclPicker } from '@hit/ui-kit/components/AclPicker';
 import { createFetchPrincipals } from '@hit/feature-pack-auth-core';
 import type { FormsAcl } from '../schema/forms';
 import { FORM_PERMISSIONS } from '../schema/forms';
