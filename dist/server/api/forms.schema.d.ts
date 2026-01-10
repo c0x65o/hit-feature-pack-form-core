@@ -28,26 +28,26 @@ export declare const putBodySchema: z.ZodObject<{
     aclEnabled: z.ZodOptional<z.ZodOptional<z.ZodBoolean>>;
     fields: z.ZodOptional<z.ZodArray<z.ZodObject<{
         type: z.ZodString;
-        key: z.ZodString;
-        defaultValue: z.ZodOptional<z.ZodNullable<z.ZodType<import("drizzle-zod").Json, unknown, z.core.$ZodTypeInternals<import("drizzle-zod").Json, unknown>>>>;
-        hidden: z.ZodOptional<z.ZodBoolean>;
         order: z.ZodOptional<z.ZodNumber>;
+        key: z.ZodString;
         label: z.ZodString;
+        hidden: z.ZodOptional<z.ZodBoolean>;
         required: z.ZodOptional<z.ZodBoolean>;
         showInTable: z.ZodOptional<z.ZodBoolean>;
         config: z.ZodOptional<z.ZodNullable<z.ZodType<import("drizzle-zod").Json, unknown, z.core.$ZodTypeInternals<import("drizzle-zod").Json, unknown>>>>;
+        defaultValue: z.ZodOptional<z.ZodNullable<z.ZodType<import("drizzle-zod").Json, unknown, z.core.$ZodTypeInternals<import("drizzle-zod").Json, unknown>>>>;
     }, "strip">>>;
     draft: z.ZodOptional<z.ZodObject<{
         fields: z.ZodOptional<z.ZodArray<z.ZodObject<{
             type: z.ZodString;
-            key: z.ZodString;
-            defaultValue: z.ZodOptional<z.ZodNullable<z.ZodType<import("drizzle-zod").Json, unknown, z.core.$ZodTypeInternals<import("drizzle-zod").Json, unknown>>>>;
-            hidden: z.ZodOptional<z.ZodBoolean>;
             order: z.ZodOptional<z.ZodNumber>;
+            key: z.ZodString;
             label: z.ZodString;
+            hidden: z.ZodOptional<z.ZodBoolean>;
             required: z.ZodOptional<z.ZodBoolean>;
             showInTable: z.ZodOptional<z.ZodBoolean>;
             config: z.ZodOptional<z.ZodNullable<z.ZodType<import("drizzle-zod").Json, unknown, z.core.$ZodTypeInternals<import("drizzle-zod").Json, unknown>>>>;
+            defaultValue: z.ZodOptional<z.ZodNullable<z.ZodType<import("drizzle-zod").Json, unknown, z.core.$ZodTypeInternals<import("drizzle-zod").Json, unknown>>>>;
         }, "strip">>>;
         listConfig: z.ZodOptional<z.ZodAny>;
     }, z.core.$strip>>;

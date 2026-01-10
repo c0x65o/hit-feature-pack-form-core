@@ -1,6 +1,6 @@
 {
   "name": "@hit/feature-pack-form-core",
-  "version": "1.0.70",
+  "version": "1.0.71",
   "description": "A HIT feature pack",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -69,6 +69,11 @@
     "react": "^19.2.3",
     "recharts": "^2.12.7",
     "zod": "^4.3.2"
+  },
+  "peerDependenciesMeta": {
+    "@hit/ui-kit": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@hit/feature-pack-stubs": "file:../../../packages/hit-feature-pack-stubs",
