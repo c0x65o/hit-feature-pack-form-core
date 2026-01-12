@@ -4,6 +4,8 @@ import { getDb } from '@/lib/db';
 import { forms, formVersions, formsAcls } from '@/lib/feature-pack-schemas';
 import { and, asc, desc, eq, like, or, sql, inArray } from 'drizzle-orm';
 import { extractUserFromRequest } from '../auth';
+import { resolveFormCoreScopeMode } from '../lib/scope-mode';
+import { requireFormCoreAction } from '../lib/require-action';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 /**
@@ -34,13 +36,27 @@ export async function GET(request) {
         }
         const userId = user.sub;
         const roles = user.roles || [];
-        const isAdmin = roles.includes('admin') || roles.includes('Admin');
         // Admin mode: return all forms (for form definition management)
         if (adminMode) {
-            if (!isAdmin) {
-                return NextResponse.json({ error: 'Admin required' }, { status: 403 });
+            // Check create permission for admin mode (form management)
+            const createCheck = await requireFormCoreAction(request, 'form-core.forms.create');
+            if (createCheck)
+                return createCheck;
+            // Also check read scope
+            const mode = await resolveFormCoreScopeMode(request, { entity: 'forms', verb: 'read' });
+            if (mode === 'none') {
+                return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
             }
             const conditions = [];
+            // Apply scope-based filtering (explicit branching on own/ldd/any)
+            // Note: 'none' mode already handled above with early return
+            if (mode === 'any') {
+                // No scoping - show all forms
+            }
+            else if (mode === 'own' || mode === 'ldd') {
+                // Forms don't have LDD fields, so ldd behaves like own (check ownerUserId)
+                conditions.push(eq(forms.ownerUserId, userId));
+            }
             if (search) {
                 conditions.push(or(like(forms.name, `%${search}%`), like(forms.slug, `%${search}%`)));
             }
@@ -71,6 +87,16 @@ export async function GET(request) {
             });
         }
         // User mode: forms they have READ ACL for OR published forms with ACL disabled
+        // Check read scope mode
+        const mode = await resolveFormCoreScopeMode(request, { entity: 'forms', verb: 'read' });
+        // Apply scope-based filtering (explicit branching on none/own/ldd/any)
+        if (mode === 'none') {
+            // Explicit deny: return empty results
+            return NextResponse.json({
+                items: [],
+                pagination: { page, pageSize, total: 0, totalPages: 0 },
+            });
+        }
         const principalIds = [userId, ...roles].filter((id) => Boolean(id));
         // Get form IDs user has READ access to via ACL
         const aclFormIds = [];
@@ -89,10 +115,22 @@ export async function GET(request) {
         }
         // Build conditions - forms with ACL access OR published forms with ACL disabled
         const accessConditions = [];
-        if (aclFormIds.length > 0) {
-            accessConditions.push(inArray(forms.id, Array.from(new Set(aclFormIds))));
+        if (mode === 'any') {
+            // No scoping - show all forms (subject to ACL)
+            if (aclFormIds.length > 0) {
+                accessConditions.push(inArray(forms.id, Array.from(new Set(aclFormIds))));
+            }
+            accessConditions.push(and(eq(forms.isPublished, true), eq(forms.aclEnabled, false)));
         }
-        accessConditions.push(and(eq(forms.isPublished, true), eq(forms.aclEnabled, false)));
+        else if (mode === 'own' || mode === 'ldd') {
+            // Forms don't have LDD fields, so ldd behaves like own (check ownerUserId)
+            // Only show forms owned by user (subject to ACL)
+            if (aclFormIds.length > 0) {
+                accessConditions.push(and(inArray(forms.id, Array.from(new Set(aclFormIds))), eq(forms.ownerUserId, userId)));
+            }
+            // Also include published forms with ACL disabled that are owned by user
+            accessConditions.push(and(eq(forms.isPublished, true), eq(forms.aclEnabled, false), eq(forms.ownerUserId, userId)));
+        }
         const conditions = [
             accessConditions.length > 1 ? or(...accessConditions) : accessConditions[0]
         ];
@@ -148,10 +186,14 @@ export async function POST(request) {
         if (!user?.sub) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-        const roles = user.roles || [];
-        const isAdmin = roles.includes('admin') || roles.includes('Admin');
-        if (!isAdmin) {
-            return NextResponse.json({ error: 'Admin required to create forms' }, { status: 403 });
+        // Check create permission
+        const createCheck = await requireFormCoreAction(request, 'form-core.forms.create');
+        if (createCheck)
+            return createCheck;
+        // Check write scope mode
+        const mode = await resolveFormCoreScopeMode(request, { entity: 'forms', verb: 'write' });
+        if (mode === 'none') {
+            return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
         }
         const formId = crypto.randomUUID();
         const versionId = crypto.randomUUID();

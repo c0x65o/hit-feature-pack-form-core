@@ -5,6 +5,8 @@ import { forms, formVersions, formFields, formEntries, formEntryHistory, formsAc
 import { and, desc, eq, or } from 'drizzle-orm';
 import { extractUserFromRequest } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
+import { resolveFormCoreScopeMode } from '../lib/scope-mode';
+import { requireFormCoreAction } from '../lib/require-action';
 
 /**
  * Check if user has a specific ACL permission on a form
@@ -35,12 +37,6 @@ async function hasFormPermission(
   return allPermissions.includes(permission);
 }
 
-/**
- * Check if user is admin
- */
-function isAdmin(roles: string[]): boolean {
-  return roles.includes('admin') || roles.includes('Admin');
-}
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -70,15 +66,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const roles = user.roles || [];
-
-    // Check access: admin can always access, others need READ ACL
-    const canAccess = isAdmin(roles) || await hasFormPermission(db, formId, user.sub, roles, FORM_PERMISSIONS.READ);
-    if (!canAccess) {
+    // Check read scope mode
+    const mode = await resolveFormCoreScopeMode(request, { entity: 'forms', verb: 'read' });
+    
+    if (mode === 'none') {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
-
-    // Get form
+    
+    // Get form first to check ownership
     const [form] = await db
       .select()
       .from(forms)
@@ -88,6 +83,35 @@ export async function GET(request: NextRequest) {
     if (!form) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
+    
+    // Apply scope-based access control (explicit branching on none/own/ldd/any)
+    if (mode === 'any') {
+      // No scoping - check ACL if enabled
+      if (form.aclEnabled) {
+        const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.READ);
+        if (!hasAccess) {
+          return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+        }
+      } else if (!form.isPublished) {
+        // Unpublished forms without ACL require ownership
+        if (form.ownerUserId !== user.sub) {
+          return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+        }
+      }
+    } else if (mode === 'own' || mode === 'ldd') {
+      // Forms don't have LDD fields, so ldd behaves like own (check ownerUserId)
+      if (form.ownerUserId !== user.sub) {
+        return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+      }
+      // Also check ACL if enabled
+      if (form.aclEnabled) {
+        const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.READ);
+        if (!hasAccess) {
+          return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+        }
+      }
+    }
+
 
     // Get latest draft version
     const [version] = await db
@@ -135,16 +159,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const roles = user.roles || [];
-
-    // Only admins can edit form definitions
-    if (!isAdmin(roles)) {
-      return NextResponse.json({ error: 'Admin required to edit forms' }, { status: 403 });
+    // Check write scope mode
+    const mode = await resolveFormCoreScopeMode(request, { entity: 'forms', verb: 'write' });
+    
+    if (mode === 'none') {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
-
-    const body = await request.json();
-
-    // Get existing form
+    
+    // Get existing form to check ownership
     const [existingForm] = await db
       .select()
       .from(forms)
@@ -154,6 +176,18 @@ export async function PUT(request: NextRequest) {
     if (!existingForm) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
+    
+    // Apply scope-based access control (explicit branching on none/own/ldd/any)
+    if (mode === 'any') {
+      // No scoping - allow edit
+    } else if (mode === 'own' || mode === 'ldd') {
+      // Forms don't have LDD fields, so ldd behaves like own (check ownerUserId)
+      if (existingForm.ownerUserId !== user.sub) {
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      }
+    }
+
+    const body = await request.json();
 
     // Update form metadata
     const formUpdate: Record<string, unknown> = { updatedAt: new Date() };
@@ -260,14 +294,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const roles = user.roles || [];
-
-    // Only admins can delete forms
-    if (!isAdmin(roles)) {
-      return NextResponse.json({ error: 'Admin required to delete forms' }, { status: 403 });
+    // Check delete scope mode
+    const mode = await resolveFormCoreScopeMode(request, { entity: 'forms', verb: 'delete' });
+    
+    if (mode === 'none') {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
-
-    // Get existing form
+    
+    // Get existing form to check ownership
     const [existingForm] = await db
       .select()
       .from(forms)
@@ -276,6 +310,16 @@ export async function DELETE(request: NextRequest) {
 
     if (!existingForm) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+    }
+    
+    // Apply scope-based access control (explicit branching on none/own/ldd/any)
+    if (mode === 'any') {
+      // No scoping - allow delete
+    } else if (mode === 'own' || mode === 'ldd') {
+      // Forms don't have LDD fields, so ldd behaves like own (check ownerUserId)
+      if (existingForm.ownerUserId !== user.sub) {
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      }
     }
 
     // Delete in order: ACLs -> history -> entries -> fields -> versions -> form

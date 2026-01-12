@@ -8,17 +8,7 @@ export declare const runtime = "nodejs";
  * - admin=true: List ALL forms (requires admin role) - for form definition management
  * - default: List forms user has READ ACL for - for nav and entry access
  */
-export declare function GET(request: NextRequest): Promise<NextResponse<{
-    error: string;
-}> | NextResponse<{
-    items: any;
-    pagination: {
-        page: number;
-        pageSize: number;
-        total: number;
-        totalPages: number;
-    };
-}>>;
+export declare function GET(request: NextRequest): Promise<NextResponse<unknown>>;
 /**
  * POST /api/forms
  * Create a new form - requires admin role

@@ -5,6 +5,8 @@ import { forms, formVersions, formFields, formEntries, formsAcls } from '@/lib/f
 import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm';
 import { extractUserFromRequest } from '../auth';
 import { FORM_PERMISSIONS } from '../../schema/forms';
+import { resolveFormCoreScopeMode } from '../lib/scope-mode';
+import { requireFormCoreAction } from '../lib/require-action';
 /**
  * Check if user has a specific ACL permission on a form
  */
@@ -94,12 +96,12 @@ export async function GET(request) {
                 return NextResponse.json({ error: 'Invalid linked entity filter' }, { status: 400 });
             }
         }
-        // Check ACL - need READ permission
-        const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.READ);
-        if (!hasAccess) {
+        // Check read scope mode for entries
+        const mode = await resolveFormCoreScopeMode(request, { entity: 'entries', verb: 'read' });
+        if (mode === 'none') {
             return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
         }
-        // Get form
+        // Get form to check ownership and ACL
         const [form] = await db
             .select()
             .from(forms)
@@ -107,6 +109,36 @@ export async function GET(request) {
             .limit(1);
         if (!form) {
             return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+        }
+        // Apply scope-based access control (explicit branching on none/own/ldd/any)
+        // Entries are scoped by form ownership, then ACLs apply
+        if (mode === 'any') {
+            // No scoping - check ACL if enabled
+            if (form.aclEnabled) {
+                const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.READ);
+                if (!hasAccess) {
+                    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+                }
+            }
+            else if (!form.isPublished) {
+                // Unpublished forms without ACL require ownership
+                if (form.ownerUserId !== user.sub) {
+                    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+                }
+            }
+        }
+        else if (mode === 'own' || mode === 'ldd') {
+            // Forms don't have LDD fields, so ldd behaves like own (check form ownerUserId)
+            if (form.ownerUserId !== user.sub) {
+                return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+            }
+            // Also check ACL if enabled
+            if (form.aclEnabled) {
+                const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.READ);
+                if (!hasAccess) {
+                    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+                }
+            }
         }
         // Get published version fields for reference (also used for linkedEntity filter validation)
         const [publishedVersion] = await db
@@ -204,10 +236,53 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const body = await request.json();
-        // Check ACL - need WRITE permission
-        const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.WRITE);
-        if (!hasAccess) {
+        // Check create permission
+        const createCheck = await requireFormCoreAction(request, 'form-core.entries.create');
+        if (createCheck)
+            return createCheck;
+        // Check write scope mode for entries
+        const mode = await resolveFormCoreScopeMode(request, { entity: 'entries', verb: 'write' });
+        if (mode === 'none') {
             return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+        }
+        // Get form to check ownership and ACL
+        const [form] = await db
+            .select()
+            .from(forms)
+            .where(eq(forms.id, formId))
+            .limit(1);
+        if (!form) {
+            return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+        }
+        // Apply scope-based access control (explicit branching on none/own/ldd/any)
+        // Entries are scoped by form ownership, then ACLs apply
+        if (mode === 'any') {
+            // No scoping - check ACL if enabled
+            if (form.aclEnabled) {
+                const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.WRITE);
+                if (!hasAccess) {
+                    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+                }
+            }
+            else if (!form.isPublished) {
+                // Unpublished forms without ACL require ownership
+                if (form.ownerUserId !== user.sub) {
+                    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+                }
+            }
+        }
+        else if (mode === 'own' || mode === 'ldd') {
+            // Forms don't have LDD fields, so ldd behaves like own (check form ownerUserId)
+            if (form.ownerUserId !== user.sub) {
+                return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+            }
+            // Also check ACL if enabled
+            if (form.aclEnabled) {
+                const hasAccess = await hasFormPermission(db, formId, user.sub, user.roles || [], FORM_PERMISSIONS.WRITE);
+                if (!hasAccess) {
+                    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+                }
+            }
         }
         const entryId = crypto.randomUUID();
         const data = body.data || body || {};
