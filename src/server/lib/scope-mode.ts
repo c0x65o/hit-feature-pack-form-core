@@ -25,12 +25,12 @@ export async function resolveFormCoreScopeMode(
   const modes: ScopeMode[] = ['none', 'own', 'ldd', 'any'];
 
   for (const m of modes) {
-    const res = await checkFormCoreAction(request, `${entityPrefix}.${m}`);
+    const res = await checkFormCoreAction(request, `${entityPrefix}.${m}`, { debug: false });
     if (res.ok) return m;
   }
 
   for (const m of modes) {
-    const res = await checkFormCoreAction(request, `${globalPrefix}.${m}`);
+    const res = await checkFormCoreAction(request, `${globalPrefix}.${m}`, { debug: false });
     if (res.ok) return m;
   }
 

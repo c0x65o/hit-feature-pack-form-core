@@ -16,15 +16,18 @@ function baseUrlFromRequest(request) {
         '';
     return `${proto}://${host}`;
 }
-export async function checkFormCoreAction(request, actionKey) {
+export async function checkFormCoreAction(request, actionKey, options) {
+    const debug = options?.debug ?? process.env.DEBUG_FORM_CORE_AUTHZ === '1';
     const token = getTokenFromRequest(request);
     if (!token) {
-        console.log(`[Form-Core Action Check] ${actionKey}: No token found`);
+        if (debug)
+            console.log(`[Form-Core Action Check] ${actionKey}: No token found`);
         return { ok: false, source: 'unauthenticated' };
     }
     const baseUrl = baseUrlFromRequest(request);
     const url = `${baseUrl}/api/proxy/auth/permissions/actions/check/${encodeURIComponent(actionKey)}`;
-    console.log(`[Form-Core Action Check] ${actionKey}: Checking via ${url}`);
+    if (debug)
+        console.log(`[Form-Core Action Check] ${actionKey}: Checking via ${url}`);
     const res = await fetch(url, {
         method: 'GET',
         headers: {
@@ -48,7 +51,8 @@ export async function checkFormCoreAction(request, actionKey) {
     }
     const json = (await res.json().catch(() => null));
     const ok = Boolean(json?.has_permission ?? json?.hasPermission ?? false);
-    console.log(`[Form-Core Action Check] ${actionKey}: Result`, { ok, source: json?.source, response: json });
+    if (debug)
+        console.log(`[Form-Core Action Check] ${actionKey}: Result`, { ok, source: json?.source, response: json });
     return { ok, source: String(json?.source || '') || undefined };
 }
 export async function requireFormCoreAction(request, actionKey) {

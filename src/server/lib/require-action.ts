@@ -5,6 +5,15 @@ type ActionCheckResult = {
   source?: string;
 };
 
+type ActionCheckOptions = {
+  /**
+   * When true, log all checks/results to console.
+   * When false (default), log only error conditions (no token / auth unreachable / non-2xx).
+   * You can also enable globally via DEBUG_FORM_CORE_AUTHZ=1.
+   */
+  debug?: boolean;
+};
+
 function getTokenFromRequest(request: NextRequest): string | null {
   const cookieToken = request.cookies.get('hit_token')?.value || null;
   if (cookieToken) return cookieToken;
@@ -28,17 +37,19 @@ function baseUrlFromRequest(request: NextRequest): string {
 
 export async function checkFormCoreAction(
   request: NextRequest,
-  actionKey: string
+  actionKey: string,
+  options?: ActionCheckOptions
 ): Promise<ActionCheckResult> {
+  const debug = options?.debug ?? process.env.DEBUG_FORM_CORE_AUTHZ === '1';
   const token = getTokenFromRequest(request);
   if (!token) {
-    console.log(`[Form-Core Action Check] ${actionKey}: No token found`);
+    if (debug) console.log(`[Form-Core Action Check] ${actionKey}: No token found`);
     return { ok: false, source: 'unauthenticated' };
   }
 
   const baseUrl = baseUrlFromRequest(request);
   const url = `${baseUrl}/api/proxy/auth/permissions/actions/check/${encodeURIComponent(actionKey)}`;
-  console.log(`[Form-Core Action Check] ${actionKey}: Checking via ${url}`);
+  if (debug) console.log(`[Form-Core Action Check] ${actionKey}: Checking via ${url}`);
   
   const res = await fetch(
     url,
@@ -69,7 +80,7 @@ export async function checkFormCoreAction(
 
   const json = (await res.json().catch(() => null)) as any;
   const ok = Boolean(json?.has_permission ?? json?.hasPermission ?? false);
-  console.log(`[Form-Core Action Check] ${actionKey}: Result`, { ok, source: json?.source, response: json });
+  if (debug) console.log(`[Form-Core Action Check] ${actionKey}: Result`, { ok, source: json?.source, response: json });
   return { ok, source: String(json?.source || '') || undefined };
 }
 
