@@ -32,7 +32,8 @@ function baseUrlFromRequest(request) {
 export async function checkFormCoreAction(request, actionKey, options) {
     const debug = options?.debug ?? process.env.DEBUG_FORM_CORE_AUTHZ === '1';
     const token = getTokenFromRequest(request);
-    if (!token) {
+    const cookieHeader = request.headers.get('cookie') || '';
+    if (!token && !cookieHeader) {
         if (debug)
             console.log(`[Form-Core Action Check] ${actionKey}: No token found`);
         return { ok: false, source: 'unauthenticated' };
@@ -41,12 +42,16 @@ export async function checkFormCoreAction(request, actionKey, options) {
     const url = `${baseUrl}/api/proxy/auth/permissions/actions/check/${encodeURIComponent(actionKey)}`;
     if (debug)
         console.log(`[Form-Core Action Check] ${actionKey}: Checking via ${url}`);
+    const headers = {
+        'Content-Type': 'application/json',
+    };
+    if (token)
+        headers.Authorization = `Bearer ${token}`;
+    if (cookieHeader)
+        headers.Cookie = cookieHeader;
     const res = await fetch(url, {
         method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-        },
+        headers,
         // Ensure cookies flow too (proxy can also read hit_token cookie)
         credentials: 'include',
     }).catch((e) => {
