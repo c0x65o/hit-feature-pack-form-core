@@ -37,6 +37,43 @@ export function FormBuilder({ id, onNavigate }: Props) {
   const { createForm, saveForm } = useFormMutations();
   const { submitting: saving, error: formError, submit, clearError, setError } = useFormSubmit();
   const { data: allForms } = useForms({ page: 1, pageSize: 200 });
+
+  // UI specs entity registry (used to make entity_reference truly dynamic instead of hardcoding a few kinds).
+  const [uiSpecEntityKindOptions, setUiSpecEntityKindOptions] = useState<Array<{ value: string; label: string }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUiSpecEntities() {
+      try {
+        const res = await fetch('/hit-ui-specs.json', { credentials: 'include' });
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        const entities = json && typeof json === 'object' ? (json as any).entities : null;
+        if (!entities || typeof entities !== 'object') return;
+
+        const opts: Array<{ value: string; label: string }> = [];
+        for (const [entityKey, spec] of Object.entries(entities as Record<string, any>)) {
+          const meta = spec && typeof spec === 'object' ? (spec as any).meta : null;
+          const titleSingular = meta && typeof meta === 'object' ? String((meta as any).titleSingular || '') : '';
+          const title = titleSingular.trim() || String(entityKey);
+          // Convention: forms entityKind uses `_` not `.` (e.g. `crm.contact` -> `crm_contact`)
+          const kind = String(entityKey).trim().replace(/\./g, '_');
+          if (!kind) continue;
+          opts.push({ value: kind, label: `${title} (${String(entityKey)})` });
+        }
+        opts.sort((a, b) => a.label.localeCompare(b.label));
+
+        if (!cancelled) setUiSpecEntityKindOptions(opts);
+      } catch {
+        // best-effort; ignore
+      }
+    }
+
+    void loadUiSpecEntities();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   
   // Table views for entries list
   const tableId = id && !isNew ? `form.${id}` : '';
@@ -746,10 +783,10 @@ export function FormBuilder({ id, onNavigate }: Props) {
 
               {f.type === 'entity_reference' && (
                 <div className="space-y-3">
-                  <Select
+                  <Input
                     label="Entity kind"
                     value={String(f.config?.entity?.kind || 'project')}
-                    onChange={(v: any) => {
+                    onChange={(v: string) => {
                       const next = [...fields];
                       const prevCfg = next[idx].config || {};
                       next[idx] = {
@@ -758,17 +795,42 @@ export function FormBuilder({ id, onNavigate }: Props) {
                           ...prevCfg,
                           entity: {
                             ...(prevCfg.entity || {}),
-                            kind: v || 'project',
+                            kind: String(v || '').trim() || 'project',
+                          },
+                        },
+                      };
+                      setFields(next);
+                    }}
+                    placeholder="e.g. crm_contact (from crm.contact)"
+                  />
+                  <div className="text-xs text-gray-500">
+                    Tip: for schema-driven entities, use <code>entityKey</code> with <code>.</code> replaced by <code>_</code> (example: <code>crm.contact</code> → <code>crm_contact</code>).
+                    Projects use <code>project</code>.
+                  </div>
+                  <Select
+                    label="Quick pick (schema-driven entities)"
+                    value=""
+                    onChange={(v: any) => {
+                      const picked = String(v || '').trim();
+                      if (!picked) return;
+                      const next = [...fields];
+                      const prevCfg = next[idx].config || {};
+                      next[idx] = {
+                        ...next[idx],
+                        config: {
+                          ...prevCfg,
+                          entity: {
+                            ...(prevCfg.entity || {}),
+                            kind: picked,
                           },
                         },
                       };
                       setFields(next);
                     }}
                     options={[
-                      { value: 'project', label: 'Project' },
-                      { value: 'crm_contact', label: 'CRM Contact' },
-                      { value: 'crm_company', label: 'CRM Company' },
-                      { value: 'crm_opportunity', label: 'CRM Opportunity' },
+                      { value: '', label: 'Select…' },
+                      { value: 'project', label: 'Project (legacy)' },
+                      ...uiSpecEntityKindOptions,
                     ]}
                   />
                   <label className="text-sm flex items-center gap-2">
