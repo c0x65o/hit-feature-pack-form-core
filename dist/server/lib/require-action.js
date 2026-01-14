@@ -33,7 +33,8 @@ export async function checkFormCoreAction(request, actionKey, options) {
     const debug = options?.debug ?? process.env.DEBUG_FORM_CORE_AUTHZ === '1';
     const token = getTokenFromRequest(request);
     const cookieHeader = request.headers.get('cookie') || '';
-    if (!token && !cookieHeader) {
+    const authHeaderRaw = request.headers.get('authorization') || '';
+    if (!token && !cookieHeader && !authHeaderRaw) {
         if (debug)
             console.log(`[Form-Core Action Check] ${actionKey}: No token found`);
         return { ok: false, source: 'unauthenticated' };
@@ -45,8 +46,12 @@ export async function checkFormCoreAction(request, actionKey, options) {
     const headers = {
         'Content-Type': 'application/json',
     };
-    if (token)
+    if (authHeaderRaw) {
+        headers.Authorization = authHeaderRaw;
+    }
+    else if (token) {
         headers.Authorization = `Bearer ${token}`;
+    }
     if (cookieHeader)
         headers.Cookie = cookieHeader;
     const res = await fetch(url, {
