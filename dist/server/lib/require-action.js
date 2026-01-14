@@ -6,6 +6,19 @@ function getTokenFromRequest(request) {
     const authHeader = request.headers.get('authorization');
     if (authHeader?.startsWith('Bearer '))
         return authHeader.slice(7);
+    const rawCookie = request.headers.get('cookie') || '';
+    if (rawCookie) {
+        const parts = rawCookie.split(';').map((c) => c.trim());
+        for (const p of parts) {
+            const eq = p.indexOf('=');
+            if (eq <= 0)
+                continue;
+            const name = p.slice(0, eq);
+            const value = p.slice(eq + 1);
+            if (name === 'hit_token' && value)
+                return value;
+        }
+    }
     return null;
 }
 function baseUrlFromRequest(request) {
