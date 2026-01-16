@@ -9,35 +9,42 @@ description: Runtime Forms feature pack with builder + CRUD entries + search + r
 routes:
   # Form management routes - admin only
   - path: /forms
-    page: FormList
+    page: EntityList
+    params: { entityKey: form-core.form }
     roles: [admin]
     default_roles_allow: [admin]
     authz: { entity: forms, verb: read, require_mode: any }
   - path: /forms/new
-    page: FormBuilder
+    page: EntityEdit
+    params: { entityKey: form-core.form }
     roles: [admin]
     default_roles_allow: [admin]
     authz: { entity: forms, verb: write, require_create: true, require_mode: any }
   - path: /forms/[id]
-    page: FormBuilder
+    page: EntityEdit
+    params: { entityKey: form-core.form }
     roles: [admin]
     default_roles_allow: [admin]
     authz: { entity: forms, verb: write, require_mode: any }
   # Entry routes - accessible based on form ACLs (checked at runtime)
   - path: /forms/[id]/entries
-    page: EntryList
+    page: EntityList
+    params: { entityKey: form-core.entry }
     roles: []
     authz: { entity: entries, verb: read }
   - path: /forms/[id]/entries/new
-    page: EntryEdit
+    page: EntityEdit
+    params: { entityKey: form-core.entry }
     roles: []
     authz: { entity: entries, verb: write, require_create: true }
   - path: /forms/[id]/entries/[entryId]
-    page: EntryDetail
+    page: EntityDetail
+    params: { entityKey: form-core.entry }
     roles: []
     authz: { entity: entries, verb: read }
   - path: /forms/[id]/entries/[entryId]/edit
-    page: EntryEdit
+    page: EntityEdit
+    params: { entityKey: form-core.entry }
     roles: []
     authz: { entity: entries, verb: write }
 

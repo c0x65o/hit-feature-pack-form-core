@@ -1,0 +1,80 @@
+entities:
+  form-core.form:
+    api:
+      resource: forms
+      baseUrl: /api/forms
+    meta:
+      titleSingular: Form
+      titlePlural: Forms
+      descriptionPlural: Manage runtime form definitions
+      actions:
+        allowCreate: true
+    security:
+      list:
+        roles: [admin]
+        default_roles_allow: [admin]
+        authz: { entity: forms, verb: read, require_mode: any }
+      detail:
+        roles: [admin]
+        default_roles_allow: [admin]
+        authz: { entity: forms, verb: read, require_mode: any }
+      new:
+        roles: [admin]
+        default_roles_allow: [admin]
+        authz: { entity: forms, verb: write, require_create: true, require_mode: any }
+      edit:
+        roles: [admin]
+        default_roles_allow: [admin]
+        authz: { entity: forms, verb: write, require_mode: any }
+    list:
+      widget: forms.runtime
+      widgetMode: forms.list
+      platforms: [web]
+    form:
+      widget: forms.runtime
+      widgetMode: forms.builder
+      platforms: [web]
+    fields:
+      id: { type: text, label: ID }
+      name: { type: text, label: Name }
+      slug: { type: text, label: Slug }
+      updatedAt: { type: datetime, label: Updated }
+
+  form-core.entry:
+    api:
+      resource: forms
+      baseUrl: /api/forms
+    meta:
+      titleSingular: Form Entry
+      titlePlural: Form Entries
+      descriptionPlural: Manage runtime form entries
+      actions:
+        allowCreate: true
+    security:
+      list:
+        roles: []
+        authz: { entity: entries, verb: read }
+      detail:
+        roles: []
+        authz: { entity: entries, verb: read }
+      new:
+        roles: []
+        authz: { entity: entries, verb: write, require_create: true }
+      edit:
+        roles: []
+        authz: { entity: entries, verb: write }
+    list:
+      widget: forms.runtime
+      widgetMode: entries.list
+      platforms: [web]
+    detail:
+      widget: forms.runtime
+      widgetMode: entries.detail
+      platforms: [web]
+    form:
+      widget: forms.runtime
+      widgetMode: entries.edit
+      platforms: [web]
+    fields:
+      id: { type: text, label: ID }
+      updatedAt: { type: datetime, label: Updated }

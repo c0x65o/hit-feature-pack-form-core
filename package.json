@@ -1,6 +1,6 @@
 {
   "name": "@hit/feature-pack-form-core",
-  "version": "1.0.86",
+  "version": "1.0.87",
   "description": "A HIT feature pack",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,11 +14,18 @@
       "default": "./dist/index.js"
     },
     "./pages/*": {
-      "development": "./src/pages/*.tsx",
+      "development": "./src/widgets/*.tsx",
       "types": "./dist/pages/*.d.ts",
       "import": "./dist/pages/*.js",
       "require": "./dist/pages/*.js",
       "default": "./dist/pages/*.js"
+    },
+    "./contrib": {
+      "development": "./src/contrib/index.tsx",
+      "types": "./dist/contrib/index.d.ts",
+      "import": "./dist/contrib/index.js",
+      "require": "./dist/contrib/index.js",
+      "default": "./dist/contrib/index.js"
     },
     "./components/*": {
       "development": "./src/components/*.ts",

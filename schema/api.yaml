@@ -1,0 +1,31 @@
+version: 1
+
+# Pack-owned "special" API routes (schema-visible).
+#
+# These are endpoints that are NOT the schema-generated CRUD routes derived from `entities.*.api.resource`.
+# They must be explicitly declared here so `hit schema validate` can enforce consistency and prevent drift.
+api:
+  routes:
+    # Form schema and entries (runtime-defined)
+    - path: /api/forms/[id]/schema
+      methods: [GET]
+      handler: forms-id-schema
+      description: "Fetch form schema (fields + configs) for non-React clients"
+    - path: /api/forms/[id]/entries
+      methods: [GET, POST]
+      handler: entries
+      description: "List (GET) or create (POST) entries for a form"
+    - path: /api/forms/[id]/entries/[entryId]
+      methods: [GET, PUT, DELETE]
+      handler: entries-id
+      description: "Get/update/delete a form entry"
+
+    # Form ACLs
+    - path: /api/forms/[id]/acl
+      methods: [GET, POST]
+      handler: acl
+      description: "List (GET) or create (POST) ACL entries for a form"
+    - path: /api/forms/[id]/acl/[aclId]
+      methods: [DELETE]
+      handler: acl
+      description: "Delete a form ACL entry"

@@ -7,11 +7,11 @@
  */
 
 // Pages - exported individually for tree-shaking
-export { FormList, default as FormListPage } from './pages/FormList';
-export { FormBuilder, default as FormBuilderPage } from './pages/FormBuilder';
-export { EntryList, default as EntryListPage } from './pages/EntryList';
-export { EntryDetail, default as EntryDetailPage } from './pages/EntryDetail';
-export { EntryEdit, default as EntryEditPage } from './pages/EntryEdit';
+export { FormList, default as FormListPage } from './widgets/FormList';
+export { FormBuilder, default as FormBuilderPage } from './widgets/FormBuilder';
+export { EntryList, default as EntryListPage } from './widgets/EntryList';
+export { EntryDetail, default as EntryDetailPage } from './widgets/EntryDetail';
+export { EntryEdit, default as EntryEditPage } from './widgets/EntryEdit';
 
 // Hooks - exported individually for tree-shaking
 export {
