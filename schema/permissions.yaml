@@ -1,0 +1,136 @@
+permissions:
+  actions:
+    # Global scope policy for form-core (base layer).
+    # This is checked by the scope-mode resolver as a fallback when entity-level overrides are not granted.
+    - key: form-core.read.scope.none
+      label: "Form-Core Read Scope = None"
+      description: "Deny all form-core read access."
+      default_enabled: false
+    - key: form-core.read.scope.all
+      label: "Form-Core Read Scope = All"
+      description: "Read all form-core entities regardless of scope."
+      default_enabled: false
+    - key: form-core.read.scope.own
+      label: "Form-Core Read Scope = Own"
+      description: "Read only form-core entities you own."
+      default_enabled: false
+
+    - key: form-core.write.scope.none
+      label: "Form-Core Write Scope = None"
+      description: "Deny all form-core write access."
+      default_enabled: false
+    - key: form-core.write.scope.all
+      label: "Form-Core Write Scope = All"
+      description: "Edit all form-core entities regardless of scope."
+      default_enabled: false
+    - key: form-core.write.scope.own
+      label: "Form-Core Write Scope = Own"
+      description: "Edit only form-core entities you own."
+      default_enabled: false
+
+    - key: form-core.delete.scope.none
+      label: "Form-Core Delete Scope = None"
+      description: "Deny all form-core delete access."
+      default_enabled: false
+    - key: form-core.delete.scope.all
+      label: "Form-Core Delete Scope = All"
+      description: "Delete all form-core entities regardless of scope."
+      default_enabled: false
+    - key: form-core.delete.scope.own
+      label: "Form-Core Delete Scope = Own"
+      description: "Delete only form-core entities you own."
+      default_enabled: false
+
+    # Forms (form definitions) - admin-only scope
+    # Forms are form definitions managed by admins. Scope modes apply to form management.
+    - key: form-core.forms.read.scope.none
+      label: "Form-Core Forms Read Scope = None"
+      description: "Deny all form definition read access."
+      default_enabled: false
+    - key: form-core.forms.read.scope.all
+      label: "Form-Core Forms Read Scope = All"
+      description: "Read all form definitions regardless of ownership."
+      default_enabled: false
+    - key: form-core.forms.read.scope.own
+      label: "Form-Core Forms Read Scope = Own"
+      description: "Read only form definitions you own."
+      default_enabled: false
+
+    - key: form-core.forms.write.scope.none
+      label: "Form-Core Forms Write Scope = None"
+      description: "Deny all form definition write access."
+      default_enabled: false
+    - key: form-core.forms.write.scope.all
+      label: "Form-Core Forms Write Scope = All"
+      description: "Edit form definitions regardless of ownership."
+      default_enabled: false
+    - key: form-core.forms.write.scope.own
+      label: "Form-Core Forms Write Scope = Own"
+      description: "Edit only form definitions you own."
+      default_enabled: false
+
+    - key: form-core.forms.delete.scope.none
+      label: "Form-Core Forms Delete Scope = None"
+      description: "Deny all form definition delete access."
+      default_enabled: false
+    - key: form-core.forms.delete.scope.all
+      label: "Form-Core Forms Delete Scope = All"
+      description: "Delete form definitions regardless of ownership."
+      default_enabled: false
+    - key: form-core.forms.delete.scope.own
+      label: "Form-Core Forms Delete Scope = Own"
+      description: "Delete only form definitions you own."
+      default_enabled: false
+
+    - key: form-core.forms.create
+      label: Create Form
+      description: "Create a new form definition."
+      default_enabled: false
+
+    # Form Entries - ACL-aware scope
+    # Form entries use ACLs for fine-grained access control, but scope modes provide
+    # a base layer of access control. Entries are scoped by form ownership and LDD.
+    # Note: Entry-level ACLs (via formsAcls) still apply in addition to scope modes.
+    - key: form-core.entries.read.scope.none
+      label: "Form-Core Entries Read Scope = None"
+      description: "Deny all form entry read access."
+      default_enabled: false
+    - key: form-core.entries.read.scope.all
+      label: "Form-Core Entries Read Scope = All"
+      description: "Read all form entries regardless of form ownership/LDD (subject to form ACLs)."
+      default_enabled: false
+    - key: form-core.entries.read.scope.own
+      label: "Form-Core Entries Read Scope = Own"
+      description: "Read only form entries for forms you own (subject to form ACLs)."
+      default_enabled: false
+
+    - key: form-core.entries.write.scope.none
+      label: "Form-Core Entries Write Scope = None"
+      description: "Deny all form entry write access."
+      default_enabled: false
+    - key: form-core.entries.write.scope.all
+      label: "Form-Core Entries Write Scope = All"
+      description: "Edit form entries regardless of form ownership/LDD (subject to form ACLs)."
+      default_enabled: false
+    - key: form-core.entries.write.scope.own
+      label: "Form-Core Entries Write Scope = Own"
+      description: "Edit only form entries for forms you own (subject to form ACLs)."
+      default_enabled: false
+
+    - key: form-core.entries.delete.scope.none
+      label: "Form-Core Entries Delete Scope = None"
+      description: "Deny all form entry delete access."
+      default_enabled: false
+    - key: form-core.entries.delete.scope.all
+      label: "Form-Core Entries Delete Scope = All"
+      description: "Delete form entries regardless of form ownership/LDD (subject to form ACLs)."
+      default_enabled: false
+    - key: form-core.entries.delete.scope.own
+      label: "Form-Core Entries Delete Scope = Own"
+      description: "Delete only form entries for forms you own (subject to form ACLs)."
+      default_enabled: false
+
+    - key: form-core.entries.create
+      label: Create Form Entry
+      description: "Create a new form entry (subject to form ACLs)."
+      default_enabled: false
